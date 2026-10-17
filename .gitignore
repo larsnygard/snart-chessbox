@@ -1,4 +1,5 @@
 # local tooling
+node_modules
 node_modules/
 .playwright/
 __pycache__/
