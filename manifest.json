@@ -1,0 +1,99 @@
+{
+  "name": "Snart Chess Trainer",
+  "short_name": "ChessTrainer",
+  "description": "Offline chess trainer: opening repertoires, endgame technique, themed tactics and famous-game memory training against Stockfish.",
+  "id": "/snart-chess-trainer/",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "any",
+  "background_color": "#0f1116",
+  "theme_color": "#0f1116",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": [
+    "education",
+    "games",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Puzzles",
+      "short_name": "Puzzles",
+      "url": "./index.html#/puzzles",
+      "description": "Themed tactical puzzles"
+    },
+    {
+      "name": "Endgames",
+      "short_name": "Endgames",
+      "url": "./index.html#/endgames",
+      "description": "Technique drills against the engine"
+    },
+    {
+      "name": "Play the engine",
+      "short_name": "Play",
+      "url": "./index.html#/coach?fen=start",
+      "description": "Free play against Stockfish"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/mobile-home.png",
+      "sizes": "780x1688",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Train: plans, progress and quick starts"
+    },
+    {
+      "src": "screenshots/mobile-endgame.png",
+      "sizes": "780x1688",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Endgame drills against Stockfish"
+    },
+    {
+      "src": "screenshots/desktop-home.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Desktop dashboard"
+    },
+    {
+      "src": "screenshots/desktop-puzzle.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Themed tactical puzzles"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# local tooling
+node_modules/
+.playwright/
+__pycache__/
+
+# editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# scratch
+*.log
+*.tmp
+.rsync-exclude.local

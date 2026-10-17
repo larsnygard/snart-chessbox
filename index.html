@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Snart Chess Trainer — openings, endgames &amp; memory</title>
+<meta name="description" content="Offline chess trainer: opening repertoires, endgame technique, tactics puzzles and famous-game memory training against Stockfish. Works on phone and desktop, installable as an app.">
+<meta name="theme-color" content="#0f1116">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Chess Trainer">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">♞</div>
+      <div>
+        <div class="brand-name">Snart Chess</div>
+        <div class="brand-sub">Trainer</div>
+      </div>
+    </div>
+    <nav id="sidenav" style="display:flex;flex-direction:column;gap:3px"></nav>
+    <div class="nav-foot">
+      <div id="engineState" class="faint">Engine: idle</div>
+      <div style="margin-top:6px">AGPL-3.0 · offline</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <h1 id="pageTitle">Train</h1>
+      <div class="spacer"></div>
+      <div id="topActions" class="row tight"></div>
+      <button class="btn ghost icon" id="installBtn" title="Install app" hidden></button>
+      <button class="btn ghost icon" id="settingsBtn" aria-label="Settings"></button>
+    </header>
+    <div class="content" id="view"></div>
+  </main>
+</div>
+
+<nav class="bottomnav" id="bottomnav"></nav>
+
+<div id="boot" style="position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:300">
+  <div style="text-align:center">
+    <div style="font-size:42px;line-height:1">♞</div>
+    <div style="font-weight:700;margin-top:8px">Snart Chess Trainer</div>
+    <div id="bootMsg" class="dim" style="font-size:.85rem;margin-top:6px">Loading board, puzzles and openings…</div>
+    <div class="meter" style="width:220px;margin:14px auto 0"><i id="bootBar" style="width:15%"></i></div>
+  </div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
