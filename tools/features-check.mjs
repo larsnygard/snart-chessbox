@@ -352,6 +352,17 @@ await page.waitForTimeout(800);
 const exportToast = await page.locator('.toast').last().textContent().catch(() => '');
 check('export to repertoire adds the game to a tree', /added to/i.test(exportToast || ''), (exportToast || '').trim());
 
+// ---------------------------------------------------------------- starter packs
+await goto('/#/repertoire');
+await page.waitForTimeout(1400);
+const packRows = await page.locator('.card:has-text("Starter packs") .list-item').count();
+check('repertoire page offers the bundled starter packs', packRows >= 3, `${packRows} packs`);
+await page.locator('.card:has-text("Starter packs") button:has-text("Add")').first().click();
+await page.waitForTimeout(3000);
+const packMoves = await page.locator('.mtree-mv').count();
+const packBadge = await page.locator('.card-head .badge').first().textContent().catch(() => '');
+check('adding a pack creates a browsable repertoire', packMoves >= 8 && /positions/.test(packBadge || ''), `${packMoves} moves, ${packBadge}`);
+
 // ---------------------------------------------------------------- PGN database
 await goto('/#/database');
 await page.waitForTimeout(600);
@@ -367,6 +378,15 @@ const found = await page.locator('.list-item .sub').count();
 check('database searches by player name', found === 2, `${found} games`);
 const exportBtn = await page.locator('button:has-text("Export PGN")').count();
 check('database can export the filtered games', exportBtn >= 1);
+const exampleBtn = await page.locator('button:has-text("Load bundled example database")').count();
+check('database offers the bundled example collection', exampleBtn === 1);
+const exampleProbe = await page.evaluate(async () => {
+  const mod = await import('./js/ui/packs.js');
+  const text = await mod.fetchExampleDatabase();
+  return { chars: text.length, games: (text.match(/\[Event /g) || []).length, head: text.slice(0, 20) };
+});
+check('bundled example database downloads and decompresses', exampleProbe.games > 9000 && /\[Event/.test(exampleProbe.head),
+  `${exampleProbe.games} games, ${Math.round(exampleProbe.chars / 1048576)} MB of PGN`);
 await page.screenshot({ path: OUT + '-database.png' });
 
 const unique = [...new Set(errors)];

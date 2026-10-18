@@ -16,6 +16,7 @@ import { parsePGN, buildPGN } from '../core/pgn.js';
 import { emptyTree, addLine, buildFromGames, treeLines, treeStats, annotateLosses, dropBadMoves, mergeTrees } from '../core/repertoire.js';
 import { uid } from '../core/sets.js';
 import { createExplorer } from '../ui/explorer.js';
+import { loadPackIndex, addPack } from '../ui/packs.js';
 import { mountOpening } from '../trainers/opening.js';
 import { download, exportName } from '../core/backup.js';
 
@@ -34,8 +35,45 @@ function renderList(host) {
         el('p', { class: 'dim', style: 'margin:0', html: 'A repertoire is a move tree for one colour. Import it from PGN, build it automatically from your own games, or add lines by hand. <b>Browse</b> shows every continuation of a position as an arrow; <b>Edit</b> turns any new move into a new variation.' })),
       el('button', { class: 'btn primary', html: `${icon('plus')}<span>New repertoire</span>`, onclick: () => newDialog() }))));
 
+  // ---- starter packs (bundled repertoires, one click each)
+  const packsHost = el('div');
+  host.append(packsHost);
+  loadPackIndex().then((idx) => {
+    if (!idx || !idx.packs || !idx.packs.length) return;
+    const card = el('div', { class: 'card', style: 'margin-bottom:14px' },
+      el('div', { class: 'card-head' },
+        el('h3', { style: 'margin:0', text: 'Starter packs' }),
+        el('span', { class: 'badge', text: `${idx.packs.length} bundled` }),
+        el('div', { class: 'spacer' }),
+        el('span', { class: 'faint', style: 'font-size:.76rem', text: 'real games, turned into repertoires' })),
+      el('p', { class: 'dim', style: 'font-size:.84rem;margin:0 0 10px', html: 'These ship with the app. Adding one builds its move tree locally — it then behaves exactly like a repertoire you built yourself: browse it, edit it, train it, export it.' }));
+    for (const pack of idx.packs) {
+      const already = (state.repertoires || []).some((r) => (r.name || '').startsWith(pack.name));
+      card.append(el('div', { class: 'list-item', style: 'cursor:default' },
+        el('span', { class: 'badge', text: pack.color === 'w' ? 'White' : 'Black' }),
+        el('div', { class: 't' },
+          el('span', { class: 'name', text: pack.name }),
+          el('span', { class: 'sub', text: `${pack.lines} lines · ${pack.nodes} positions · ${pack.maxPlies} plies deep` })),
+        el('button', {
+          class: 'btn sm' + (already ? '' : ' primary'), text: already ? 'Add again' : 'Add',
+          onclick: async (e) => {
+            e.currentTarget.disabled = true;
+            try {
+              const { rep, stats } = await addPack(pack.id);
+              toast(`Added “${pack.name}” — ${stats.leaves} lines`, 'ok');
+              navigate('/repertoire/' + rep.id + '?tab=browse');
+            } catch (err) {
+              e.currentTarget.disabled = false;
+              toast('Could not add that pack: ' + (err.message || err), 'bad');
+            }
+          },
+        })));
+    }
+    packsHost.append(card);
+  }).catch(() => { /* packs are optional */ });
+
   if (!reps.length) {
-    host.append(el('div', { class: 'empty', text: 'No repertoires yet. Create one — you can start empty, from a PGN file, or from the games you already imported.' }));
+    host.append(el('div', { class: 'empty', text: 'No repertoires yet. Add a starter pack above, create one, or load a PGN file.' }));
   } else {
     const list = el('div', { class: 'grid cols-2' });
     for (const rep of reps) {

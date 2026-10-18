@@ -1,6 +1,6 @@
 {
   "name": "snart-chessbox",
-  "version": "1.5.0-beta.1",
+  "version": "1.6.0-beta.1",
   "private": true,
   "type": "module",
   "description": "Offline chess trainer: opening repertoires, endgame technique, tactics puzzles and game memory against Stockfish (PWA).",
@@ -13,6 +13,7 @@
     "test:flows": "node tools/flows-check.mjs",
     "verify:endgames": "node tools/verify-endgames.mjs",
     "build:openings": "node tools/build-openings.mjs",
+    "build:packs": "node tools/build-packs.mjs",
     "icons": "python3 tools/make-icons.py",
     "pieces": "python3 tools/make-pieces.py"
   },

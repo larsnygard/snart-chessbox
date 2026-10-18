@@ -26,6 +26,14 @@ the whole app (engine included) is cached by a service worker so it works on a p
 - Hints draw the expected move as an arrow; a wrong move is rejected with the expected SAN.
 - "Play on vs engine" when the line ends.
 
+**Bundled starter packs**
+- Three repertoires ship with the app: **Rubinstein — White**, **Rubinstein — Black** and
+  **Caro-Kann — Black** (397 / 370 / 180 lines, 20 plies deep, taken from the bundled master
+  games). One click on *Repertoire → Starter packs* builds the tree locally; it then behaves
+  exactly like a repertoire you built yourself.
+- A **9,834-game example database** (TWIC 1666 plus Rubinstein's games) can be imported from
+  the Database screen. It is shipped gzipped and only downloads when you ask for it.
+
 **Repertoire builder**
 - Build a move tree by hand, import PGN (**paste or load a file**, with a **player-name
   filter** — drop in a master collection and build a Kasparov/Karpov repertoire), or
@@ -234,6 +242,7 @@ The browser checks need `playwright` (`npm i -D playwright` + `npx playwright in
 Regenerate bundled data:
 
 ```bash
+npm run build:packs      # data/packs/*.json    from pgn/repertoire-*.pgn
 npm run build:openings   # data/openings.json   from lichess-org/chess-openings (CC0)
 node tools/build-puzzles.mjs   # data/puzzles.json  from database.lichess.org (CC0, ~300 MB download)
 node tools/build-famous-games.mjs  # data/famous-games.json (source-verified PGNs)

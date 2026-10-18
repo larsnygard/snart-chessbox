@@ -5,9 +5,9 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.5.0-beta.1';
+export const VERSION = '1.6.0-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
-export const BUILD = '2026-10-18';
+export const BUILD = '2026-10-19';
 export const IS_BETA = CHANNEL === 'beta';
 
 export const BETA_NOTICE = 'Beta release: features, storage formats and export files may change between versions. Export a backup before updating.';
@@ -21,6 +21,15 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.6.0-beta.1',
+    date: '2026-10-19',
+    channel: 'beta',
+    notes: [
+      'Starter packs: Rubinstein (White), Rubinstein (Black) and Caro-Kann (Black) repertoires ship with the app — one click builds the tree locally and it behaves like your own repertoire.',
+      'Bundled example database (9,834 master games: TWIC 1666 plus Rubinstein) can be imported from the Database screen; it downloads only when asked for.',
+    ],
+  },
   {
     version: '1.5.0-beta.1',
     date: '2026-10-18',

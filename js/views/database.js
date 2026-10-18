@@ -8,6 +8,7 @@
 import { state, navigate, persist } from '../app.js';
 import { el, icon, toast, modal, confirmDialog } from '../ui/components.js';
 import { importPGNText, searchGames, loadMeta, metaCached, getGame, deleteAllGames, exportPGN, toGameObjects, playerList, isImporting } from '../ui/pgndb.js';
+import { fetchExampleDatabase } from '../ui/packs.js';
 import { buildFromGames, treeStats, emptyTree } from '../core/repertoire.js';
 import { uid } from '../core/sets.js';
 import { download, exportName } from '../core/backup.js';
@@ -94,7 +95,40 @@ export function render(host) {
       el('div', { style: 'height:8px' }), area,
       el('div', { class: 'row', style: 'margin-top:8px' },
         el('button', { class: 'btn', text: 'Import pasted PGN', onclick: () => doImport(area.value, 'pasted') })),
+      el('div', { class: 'row', style: 'margin-top:12px;gap:10px;flex-wrap:wrap' },
+        el('button', { class: 'btn', html: `${icon('database')}<span>Load bundled example database</span>`, onclick: loadExample }),
+        el('span', { class: 'faint', style: 'font-size:.76rem', text: '9,834 master games (TWIC 1666 plus Rubinstein’s games) · ~2.4 MB, downloaded once' })),
       info, bar, fileInput);
+
+    async function loadExample() {
+      if (isImporting()) { toast('An import is already running', 'bad'); return; }
+      info.textContent = 'Downloading the example database…';
+      bar.classList.remove('hidden');
+      try {
+        const text = await fetchExampleDatabase((read, total) => {
+          const mb = (read / 1048576).toFixed(1);
+          info.textContent = total ? `Downloading… ${mb} MB of ${(total / 1048576).toFixed(1)} MB` : `Downloading… ${mb} MB`;
+        });
+        info.textContent = 'Parsing games…';
+        bar.querySelector('i').style.width = '0%';
+        const res = await importPGNText(text, {
+          source: 'example database',
+          onProgress: (done, totalGames, added) => {
+            const pct = totalGames ? Math.round((done / totalGames) * 100) : 0;
+            bar.querySelector('i').style.width = `${pct}%`;
+            info.textContent = `Parsing ${done}/${totalGames} · ${added} added`;
+          },
+        });
+        info.textContent = `Example database imported: ${res.added} game(s)${res.duplicates ? `, ${res.duplicates} already present` : ''}.`;
+        toast(`${res.added} games imported`, 'ok');
+        drawImport();
+        drawFilters();
+        runSearch(true);
+      } catch (e) {
+        info.textContent = 'Could not load the example database: ' + (e && e.message ? e.message : e);
+        toast('Example database failed to load', 'bad');
+      }
+    }
   }
 
   // ---------------------------------------------------------------- filters

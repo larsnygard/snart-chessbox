@@ -1,0 +1,44 @@
+{
+ "generated": "2026-10-18",
+ "packs": [
+  {
+   "id": "rubinstein-white",
+   "name": "Rubinstein — White",
+   "color": "w",
+   "description": "Akiba Rubinstein’s White repertoire: 1.d4 systems with an early Nf3, the Rubinstein System against the Nimzo, and his QGD treatment.",
+   "source": "Rubinstein’s games from the bundled master database",
+   "file": "rubinstein-white.json",
+   "lines": 397,
+   "nodes": 5442,
+   "maxPlies": 20,
+   "duplicates": 0,
+   "bytes": 47397
+  },
+  {
+   "id": "rubinstein-black",
+   "name": "Rubinstein — Black",
+   "color": "b",
+   "description": "Rubinstein’s Black repertoire: a Ruy Lopez line, the French and his aggressive replies to 1.d4.",
+   "source": "Rubinstein’s games from the bundled master database",
+   "file": "rubinstein-black.json",
+   "lines": 370,
+   "nodes": 4358,
+   "maxPlies": 20,
+   "duplicates": 0,
+   "bytes": 44490
+  },
+  {
+   "id": "caro-kann-black",
+   "name": "Caro-Kann — Black",
+   "color": "b",
+   "description": "Caro-Kann lines against 1.e4: the main 3.exd5 cxd5 structure with Bd3/c3/Nf3, taken from the games in the database.",
+   "source": "Caro-Kann games from the bundled master database",
+   "file": "caro-kann-black.json",
+   "lines": 180,
+   "nodes": 2138,
+   "maxPlies": 20,
+   "duplicates": 0,
+   "bytes": 21583
+  }
+ ]
+}

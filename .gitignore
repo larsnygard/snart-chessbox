@@ -14,3 +14,6 @@ __pycache__/
 *.log
 *.tmp
 .rsync-exclude.local
+
+# the plain 9,834-game PGN is regenerable from the .gz
+pgn/chessbox-example.pgn

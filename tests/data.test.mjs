@@ -34,6 +34,33 @@ test('openings: every line replays legally from the start position', () => {
   assert.equal(checked, openings.openings.length);
 });
 
+test('starter packs: every line is legal and the index matches the files', () => {
+  const idxPath = new URL('../data/packs/index.json', import.meta.url);
+  const index = JSON.parse(readFileSync(idxPath, 'utf8'));
+  assert.ok(index.packs.length >= 3, `only ${index.packs.length} packs`);
+  for (const meta of index.packs) {
+    const file = new URL('../data/packs/' + meta.file, import.meta.url);
+    const pack = JSON.parse(readFileSync(file, 'utf8'));
+    assert.equal(pack.id, meta.id);
+    assert.equal(pack.name, meta.name);
+    assert.ok(['w', 'b'].includes(pack.color), `${pack.id}: colour`);
+    assert.ok(Array.isArray(pack.moves) && pack.moves.length > 20, `${pack.id}: ${pack.moves.length} lines`);
+    assert.equal(pack.lines, pack.moves.length, `${pack.id}: line count`);
+    assert.equal(pack.lines, meta.lines, `${pack.id}: index line count`);
+    assert.equal(pack.nodes, meta.nodes, `${pack.id}: index node count`);
+    let checked = 0;
+    for (const line of pack.moves) {
+      assert.ok(line.length >= 8 && line.length <= 40, `${pack.id}: odd line length ${line.length}`);
+      const c = new Chess();
+      for (const san of line) {
+        assert.doesNotThrow(() => c.move(san), `${pack.id}: illegal move ${san}`);
+      }
+      checked++;
+    }
+    assert.equal(checked, pack.moves.length);
+  }
+});
+
 test('openings: ids are unique', () => {
   const ids = new Set(openings.openings.map((o) => o.id));
   assert.equal(ids.size, openings.openings.length);
