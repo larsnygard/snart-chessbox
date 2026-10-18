@@ -191,7 +191,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .stat .k { font-size: 0.74rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; }
 
 /* ---------- board ---------- */
-.board-outer { display: flex; flex-direction: column; gap: 8px; }
+.board-outer {
+  display: flex; flex-direction: column; gap: 8px;
+  /* clips the Simultan board slide and carries the shadow, so the sliding
+     board never overlaps the panel next to it */
+  overflow: hidden; border-radius: var(--board-radius);
+  box-shadow: var(--shadow); background: #0b0e13;
+}
 .board[data-board="forest"] { --sq-light: #eeeed2; --sq-dark: #769656; }
 .board[data-board="walnut"] { --sq-light: #f0d9b5; --sq-dark: #b58863; }
 .board[data-board="ocean"]  { --sq-light: #dee3e6; --sq-dark: #8ca2ad; }
@@ -202,7 +208,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 .board {
   position: relative; width: 100%; aspect-ratio: 1 / 1; border-radius: var(--board-radius);
-  overflow: hidden; box-shadow: var(--shadow); user-select: none; touch-action: none;
+  overflow: hidden; user-select: none; touch-action: none;
   background: var(--sq-dark);
 }
 .board-squares { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(8, 1fr);

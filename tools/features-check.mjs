@@ -80,6 +80,46 @@ await page.locator('.side-col .list .list-item').nth(0).click();
 await page.waitForTimeout(600);
 check('simultan: a hand-flipped board keeps its orientation', flipped === 'h1' && (await topLeftSquare()) === 'h1', `${flipped} → ${await topLeftSquare()}`);
 
+// ---------------------------------------------------------------- simultan: animated board switch
+await page.locator('.side-col .list .list-item').nth(0).click();
+await page.waitForTimeout(700);
+const animSample = await page.evaluate(async () => {
+  const b = document.querySelector('.board');
+  const before = getComputedStyle(b).transform;
+  const nextBtn = [...document.querySelectorAll('.board-col .row button')].find((x) => /Next/.test(x.textContent));
+  nextBtn.click();
+  await new Promise((r) => setTimeout(r, 90));
+  const during = getComputedStyle(b).transform;
+  const running = b.getAnimations().map((a) => a.playState);
+  await new Promise((r) => setTimeout(r, 700));
+  const after = getComputedStyle(b).transform;
+  return { before, during, after, running };
+});
+check('switching boards is animated (slide)', animSample.during !== animSample.before && animSample.after === animSample.before && animSample.running.includes('running'),
+  `${animSample.before} → ${animSample.during} (${animSample.running.join(',')}) → ${animSample.after}`);
+
+// ---------------------------------------------------------------- simultan: switch delay
+async function startSimulWithDelay(label) {
+  await goto('/#/simultan');
+  await page.locator('.chip:has-text("3 boards")').first().click();
+  await page.locator(`.chip:has-text("${label}")`).first().click();
+  await page.locator('button:has-text("Start simultan")').first().click();
+  await page.waitForTimeout(1500);
+}
+await startSimulWithDelay('Manual');
+await clickSquare('e2');
+await clickSquare('e4');
+await page.waitForTimeout(2200);
+const manualBoard = await page.locator('.board-col strong').first().textContent().catch(() => '');
+check('manual mode keeps you on the board after your move', /Board 1/.test(manualBoard || ''), manualBoard);
+
+await startSimulWithDelay('Instant');
+await clickSquare('e2');
+await clickSquare('e4');
+await page.waitForTimeout(1600);
+const autoBoard = await page.locator('.board-col strong').first().textContent().catch(() => '');
+check('instant mode moves to the next board by itself', !/Board 1/.test(autoBoard || ''), autoBoard);
+
 // ---------------------------------------------------------------- no scroll while playing
 await page.setViewportSize({ width: 390, height: 700 });
 await goto('/#/endgames/kqk-1');

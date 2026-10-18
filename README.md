@@ -54,6 +54,9 @@ the whole app (engine included) is cached by a service worker so it works on a p
   *thinking debt* — it accumulates while you are away and is paid back as extra engine
   thinking time when that board answers, so looking away never weakens the opponent.
 - Colour per board (White / Black / alternate), base thinking time, debt cap, board order.
+- Boards switch with a short directional slide (skipped under *reduce motion*), after a
+  configurable pause — Instant, 0.4 s, 0.8 s, 1.5 s or **Manual** (you pick the next board
+  yourself, e.g. when you play the whole exhibition by hand).
 - Score card (wins 1, draws ½), per-board status, resign, new exhibition.
 
 **Play vs engine (with your own opening book)**

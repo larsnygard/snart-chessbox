@@ -48,6 +48,8 @@ export function render(host) {
       thinkMs: Number(localStorage.getItem('scb.simultan.think') || 350),
       debt: Number(localStorage.getItem('scb.simultan.debt') || 4),
       order: localStorage.getItem('scb.simultan.order') || 'sequential',
+      delay: localStorage.getItem('scb.simultan.delay') !== null
+        ? Number(localStorage.getItem('scb.simultan.delay')) : 0.5, // seconds, -1 = manual
     };
     const save = () => {
       localStorage.setItem('scb.simultan.boards', String(cfg.boards));
@@ -56,6 +58,7 @@ export function render(host) {
       localStorage.setItem('scb.simultan.think', String(cfg.thinkMs));
       localStorage.setItem('scb.simultan.debt', String(cfg.debt));
       localStorage.setItem('scb.simultan.order', cfg.order);
+      localStorage.setItem('scb.simultan.delay', String(cfg.delay));
     };
 
     setupCard.innerHTML = '';
@@ -84,6 +87,7 @@ export function render(host) {
     };
 
     const meta = el('div', { class: 'faint', style: 'font-size:.78rem;margin-top:4px' });
+    const metaText = (c) => `≈ ${c.boards} games · ${c.thinkMs} ms + ${c.debt} plies of background thought · engine ${c.strength || 'max'} · switch ${c.delay < 0 ? 'manually' : `after ${c.delay} s`}`;
 
     setupCard.append(el('div', { class: 'card' },
       chips(COUNTS.map((n) => ({ value: n, label: `${n} boards` })), cfg.boards, 'Boards', (v) => { cfg.boards = v; save(); }),
@@ -92,11 +96,18 @@ export function render(host) {
       chips([150, 250, 400, 700, 1200].map((t) => ({ value: t, label: `${t} ms` })), cfg.thinkMs, 'Base thinking time per move', (v) => { cfg.thinkMs = v; save(); }),
       chips([0, 2, 4, 8].map((d) => ({ value: d, label: d ? `${d} plies` : 'Off' })), cfg.debt, 'Background thinking (debt)', (v) => { cfg.debt = v; save(); }),
       chips(ORDERS.map((o) => ({ value: o.id, label: o.name })), cfg.order, 'Board order', (v) => { cfg.order = v; save(); }),
+      chips([
+        { value: 0, label: 'Instant' },
+        { value: 0.4, label: '0.4 s' },
+        { value: 0.8, label: '0.8 s' },
+        { value: 1.5, label: '1.5 s' },
+        { value: -1, label: 'Manual' },
+      ], cfg.delay, 'Switch board after your move', (v) => { cfg.delay = v; save(); meta.textContent = metaText(cfg); }),
       meta,
       el('div', { class: 'row', style: 'margin-top:6px' },
         el('button', { class: 'btn primary', html: `${icon('play')}<span>Start simultan</span>`, onclick: () => start(cfg) }))));
 
-    meta.textContent = `≈ ${cfg.boards} games · ${cfg.thinkMs} ms + ${cfg.debt} plies of background thought · engine ${cfg.strength || 'max'}`;
+    meta.textContent = metaText(cfg);
   }
 
   // ---------------------------------------------------------------- session
@@ -194,7 +205,7 @@ export function render(host) {
       }
       board.setPosition(g2.fen, { last: g2.lastMove, arrows: [], clearSelection: true });
       const myTurn = !g2.result && turnOf(g2.fen) === g2.userColor;
-      board.setInteractive(myTurn);
+      board.setInteractive(myTurn && !switching);
       headTitle.textContent = `Board ${g2.n} of ${session.games.length}`;
       headColor.textContent = g2.userColor === 'w' ? 'you are White' : 'you are Black';
       headWait.classList.toggle('hidden', !g2.awaiting);
@@ -233,7 +244,7 @@ export function render(host) {
       const res = el('span', { class: 'badge hidden' });
       const row = el('div', {
         class: 'list-item',
-        onclick: () => { session.focus = i; paint(); },
+        onclick: () => switchTo(i),
       },
         el('span', { class: 'mono faint', style: 'width:18px', text: String(x.n) }),
         el('span', { class: 'badge', text: x.userColor === 'w' ? 'W' : 'B' }),
@@ -277,10 +288,64 @@ export function render(host) {
       });
     }
 
-    function focus(delta) {
+    // ---- board switching: a directional slide
+    //
+    // A slide was chosen over a fade or a 3D cube: it tells you *which way* you
+    // moved (the board list is ordered), costs nothing on a phone (two transform
+    // keyframes, no extra rasterisation of 32 SVG pieces) and does not distort
+    // the pieces the way a cube would.
+    let switching = false;
+    let queuedFocus = null;
+
+    function motionAllowed() {
+      if (state.settings.animate === false) return false;
+      try { return !window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return true; }
+    }
+
+    async function switchTo(index, { instant = false } = {}) {
       const n = session.games.length;
-      session.focus = (session.focus + delta + n) % n;
-      paint();
+      const target = ((index % n) + n) % n;
+      if (target === session.focus && !switching) return;
+      if (switching) { queuedFocus = target; return; }
+      const direction = Math.sign(target - session.focus) || 1;
+      const el = board.board;
+      if (instant || !motionAllowed() || !el || !el.animate) {
+        session.focus = target;
+        paint();
+        return;
+      }
+      switching = true;
+      board.setInteractive(false);
+      try {
+        await el.animate([
+          { transform: 'translateX(0)', opacity: 1 },
+          { transform: `translateX(${-24 * direction}%)`, opacity: 0 },
+        ], { duration: 130, easing: 'cubic-bezier(.4,0,1,1)' }).finished;
+        session.focus = target;
+        paint();
+        await el.animate([
+          { transform: `translateX(${24 * direction}%)`, opacity: 0 },
+          { transform: 'translateX(0)', opacity: 1 },
+        ], { duration: 180, easing: 'cubic-bezier(0,0,.2,1)' }).finished;
+      } catch (e) {
+        session.focus = target;
+      } finally {
+        el.style.transform = '';
+        el.style.opacity = '';
+        switching = false;
+        paint();
+        if (queuedFocus !== null && queuedFocus !== session.focus) {
+          const next = queuedFocus;
+          queuedFocus = null;
+          switchTo(next);
+        } else {
+          queuedFocus = null;
+        }
+      }
+    }
+
+    function focus(delta) {
+      switchTo(session.focus + delta);
     }
 
     function applyMoveTo(g2, uci) {
@@ -307,17 +372,26 @@ export function render(host) {
       }
       paint();
       pump();
-      // move on to the next unfinished board, like walking the hall in a simul
-      if (!g2.result && session.cfg.order === 'sequential') setTimeout(() => nextUnfinished(), 250);
+      // move on after the configured pause (or never, in manual mode)
+      const delay = session.cfg.delay;
+      if (!g2.result && delay >= 0) {
+        setTimeout(() => nextUnfinished(), Math.round(delay * 1000));
+      }
     }
 
     function nextUnfinished() {
       const n = session.games.length;
-      for (let i = 1; i <= n; i++) {
+      const waiting = [];
+      for (let i = 1; i < n; i++) {
         const idx = (session.focus + i) % n;
         const x = session.games[idx];
-        if (!x.result && turnOf(x.fen) === x.userColor) { session.focus = idx; paint(); return; }
+        if (!x.result && turnOf(x.fen) === x.userColor) waiting.push(idx);
       }
+      if (!waiting.length) return;
+      const next = session.cfg.order === 'random'
+        ? waiting[Math.floor(Math.random() * waiting.length)]
+        : waiting[0];
+      switchTo(next);
     }
 
     function ctxSound(res) {
