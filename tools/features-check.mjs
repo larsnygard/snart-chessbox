@@ -56,6 +56,22 @@ await goto('/#/settings');
 await page.locator('label.check:has-text("White always at the bottom") input').uncheck();
 await page.waitForTimeout(300);
 
+// ---------------------------------------------------------------- beta notice + about page
+await goto('/#/home');
+const banner = await page.locator('.card:has-text("Beta build")').first().textContent().catch(() => '');
+check('home shows the beta notice with a breaking-changes warning', /expect breaking changes/i.test(banner || '') && /backup/i.test(banner || ''),
+  (banner || '').replace(/\s+/g, ' ').slice(0, 70));
+await page.locator('button:has-text("Dismiss")').first().click();
+await page.waitForTimeout(300);
+await goto('/#/home');
+const bannerAfter = await page.locator('.card:has-text("Beta build")').count();
+check('the beta notice can be dismissed and stays dismissed', bannerAfter === 0, `${bannerAfter} banner(s)`);
+await goto('/#/about');
+const aboutBody = await page.locator('.content').first().textContent().catch(() => '');
+check('about page states the version, beta status and release notes',
+  /v1\.\d+\.\d+-beta/.test(aboutBody || '') && /this is a beta release/i.test(aboutBody || '') && /Licences/.test(aboutBody || ''),
+  (aboutBody || '').replace(/\s+/g, ' ').slice(0, 60));
+
 // ---------------------------------------------------------------- simultan orientation per board
 await goto('/#/simultan');
 await page.locator('.chip:has-text("2 boards")').first().click();

@@ -78,6 +78,15 @@ check('eval-spread selection actually varies the move', engineDeep.picks.length 
   `picked ${engineDeep.picks.join(',')}`);
 check('weak-strength search still returns a move', !!engineDeep.weakMove, String(engineDeep.weakMove));
 
+// ---- 1b. version footer + about page
+const buildInfo = await page.locator('#buildInfo').textContent().catch(() => '');
+check('sidebar shows the version and channel', /v\d+\.\d+\.\d+/.test(buildInfo || '') && /beta/.test(buildInfo || ''), (buildInfo || '').replace(/\s+/g, ' ').trim());
+await goto('/#/about');
+const aboutText = await page.locator('.content').first().textContent().catch(() => '');
+check('About page shows version, beta status and release notes',
+  /v1\.\d+\.\d+/.test(aboutText || '') && /beta/i.test(aboutText || '') && /Release notes/.test(aboutText || '') && /Licences/.test(aboutText || ''),
+  (aboutText || '').replace(/\s+/g, ' ').slice(0, 80));
+
 // ---- 2. screens
 const screens = [
   ['#/openings', 'Opening database'],
@@ -88,6 +97,7 @@ const screens = [
   ['#/sets', 'Exercise sets'],
   ['#/repertoire', 'Your repertoire'],
   ['#/settings', 'Settings'],
+  ['#/about', 'Release notes'],
 ];
 for (const [hash, text] of screens) {
   await goto(hash);

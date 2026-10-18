@@ -1,5 +1,11 @@
 # SnartChessBox
 
+> **Beta (v1.5.0-beta.1).** Features, storage formats and export files may change between
+> builds, and an update can make older exports incompatible. Keep a backup
+> (*Settings → Export bundle*) before updating. Release notes live in the app under **About**
+> and in [`js/version.js`](js/version.js) — version numbers there, in `package.json`, in the
+> manifest and in the service-worker cache tag are checked by `tests/pwa.test.mjs`.
+
 An offline-first chess **training** app: opening repertoires for both colours, endgame
 technique drills, themed tactics, simultaneous exhibitions against the engine, and
 famous-game memorisation — all against a local Stockfish, all in the browser,
@@ -194,7 +200,8 @@ js/core/              pure logic, no DOM — unit-tested in Node
 js/ui/                board renderer, pieces, engine worker client, sound, store, helpers
 js/trainers/          one trainer per activity (opening, endgame, puzzle, memory, freeplay)
 js/views/             one screen per route (home, openings, endgames, puzzles,
-                      simultan, memory, coach, repertoire, sets, session, settings)
+                      simultan, memory, coach, database, repertoire, sets, session,
+                      settings, about)
 vendor/chess.mjs      chess.js (ESM)
 engines/              Stockfish 19 lite, single-threaded WASM build
 data/                  generated datasets (openings, puzzles, famous games)

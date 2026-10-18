@@ -115,6 +115,35 @@ test('service worker has the offline-critical mechanics', () => {
   assert.match(sw, /url\.origin !== self\.location\.origin/, 'cross-origin requests pass through');
 });
 
+test('version numbers agree across js/version.js, package.json and the manifest', () => {
+  const src = read('js/version.js');
+  const appVersion = /export const VERSION = '([^']+)'/.exec(src)?.[1];
+  assert.ok(appVersion, 'js/version.js must export VERSION');
+  const pkg = JSON.parse(read('package.json'));
+  const mf = JSON.parse(read('manifest.json'));
+  assert.equal(pkg.version, appVersion, 'package.json version');
+  assert.equal(mf.version, appVersion, 'manifest version');
+
+  const swTag = /const VERSION = '([^']+)'/.exec(sw)?.[1];
+  assert.ok(swTag, 'sw.js must declare a cache tag');
+  const base = appVersion.split('-')[0]; // 1.5.0-beta.1 → 1.5.0
+  assert.ok(swTag.startsWith(`v${base}-`), `SW cache tag ${swTag} must start with v${base}- so the app and the cache agree`);
+});
+
+test('release notes lead with the current version and are ordered newest-first', () => {
+  const src = read('js/version.js');
+  const appVersion = /export const VERSION = '([^']+)'/.exec(src)[1];
+  const versions = [...src.matchAll(/version: '([^']+)',\s*\n\s*date:/g)].map((m) => m[1]);
+  assert.ok(versions.length >= 3, `only ${versions.length} changelog entries`);
+  assert.equal(versions[0], appVersion, 'the newest release note must be the current version');
+});
+
+test('beta builds carry a warning', () => {
+  const src = read('js/version.js');
+  if (!/export const CHANNEL = 'beta'/.test(src)) return; // stable: nothing to warn about
+  assert.match(src, /export const BETA_NOTICE = '[^']{20,}'/, 'beta builds need a visible notice');
+});
+
 test('index.html declares the PWA basics', () => {
   assert.match(html, /<link rel="manifest" href="manifest\.json">/);
   assert.match(html, /<meta name="theme-color"/);

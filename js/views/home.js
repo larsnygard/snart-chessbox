@@ -7,6 +7,7 @@ import { estimateMinutes, describeItem } from '../core/sets.js';
 import { data } from '../app.js';
 import { ENDGAME_DRILLS } from '../core/endgames.js';
 import { describeResume } from '../ui/resume.js';
+import { VERSION, IS_BETA } from '../version.js';
 
 export function render(host) {
   const s = state.settings;
@@ -36,6 +37,31 @@ export function render(host) {
         el('span', { class: 'v', text: String(puzzles.due + endgames.due + openings.due + memories.due) })),
       el('div', { class: 'dim', style: 'font-size:.8rem;margin-top:6px', text: 'Items the scheduler wants to see again today.' })),
   );
+
+  let betaBanner = null;
+  try {
+    if (IS_BETA && localStorage.getItem('scb.betaSeen') !== VERSION) {
+      const dismiss = el('button', {
+        class: 'btn sm ghost', text: 'Dismiss',
+        onclick: (e) => {
+          try { localStorage.setItem('scb.betaSeen', VERSION); } catch (err) { /* ignore */ }
+          const card = e.target.closest('.card');
+          if (card) card.remove();
+        },
+      });
+      const actions = el('div', { class: 'row', style: 'gap:8px;margin-top:8px' },
+        el('button', { class: 'btn sm', text: 'What’s new', onclick: () => navigate('/about') }),
+        dismiss);
+      const text = el('div', { style: 'flex:1' },
+        el('strong', { text: `Beta build v${VERSION} — expect breaking changes` }),
+        el('div', { class: 'dim', style: 'font-size:.82rem', text: 'Features and data formats can change between versions, and an update can make older exports incompatible. Keep a backup before updating.' }),
+        actions);
+      betaBanner = el('div', { class: 'card', style: 'margin:14px 0;border-color:rgba(224,184,58,.45);background:rgba(224,184,58,.07)' },
+        el('div', { class: 'row', style: 'gap:10px;align-items:flex-start' },
+          el('span', { html: icon('info'), style: 'color:var(--warn)' }),
+          text));
+    }
+  } catch (e) { /* localStorage may be unavailable */ }
 
   const resume = describeResume();
   const resumeCard = resume ? el('div', { class: 'card', style: 'margin:14px 0;border-color:rgba(55,185,138,.35)' },
@@ -91,7 +117,7 @@ export function render(host) {
       jumpCard('My repertoire', 'Drill the lines you actually play', 'star', () => navigate('/repertoire')),
     ));
 
-  host.append(hero, resumeCard || el('span'), stats, setsSection, jump);
+  host.append(hero, betaBanner || el('span'), resumeCard || el('span'), stats, setsSection, jump);
 
   function quickStart() {
     const due = Object.entries(state.progress || {}).filter(([, v]) => !v.due || v.due <= Date.now());

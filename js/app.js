@@ -7,6 +7,7 @@ import * as sound from './ui/sound.js';
 import { toast, icon, el, clear } from './ui/components.js';
 import { review as srsReview } from './core/srs.js';
 import { initResume } from './ui/resume.js';
+import { VERSION, CHANNEL, IS_BETA } from './version.js';
 import { makeSet, makeItem } from './core/sets.js';
 
 export const state = {
@@ -68,6 +69,7 @@ const NAV = [
   { id: 'repertoire', label: 'Repertoire', icon: 'star' },
   { id: 'sets', label: 'Sets', icon: 'layers' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
+  { id: 'about', label: 'About', icon: 'info' },
 ];
 const MOBILE_NAV = ['home', 'openings', 'endgames', 'puzzles'];
 
@@ -82,6 +84,7 @@ async function loadViews() {
     memory: './views/memory.js',
     coach: './views/coach.js',
     database: './views/database.js',
+    about: './views/about.js',
     repertoire: './views/repertoire.js',
     sets: './views/sets.js',
     settings: './views/settings.js',
@@ -136,6 +139,7 @@ function titleFor(name, route) {
   const map = {
     home: 'Train', openings: 'Openings', endgames: 'Endgames', puzzles: 'Puzzles',
     simultan: 'Simultan', memory: 'Game memory', coach: 'My games', database: 'PGN database', repertoire: 'Repertoire', sets: 'Exercise sets',
+    about: 'About',
     settings: 'Settings', session: 'Session',
   };
   return map[name] || 'SnartChessBox';
@@ -176,8 +180,17 @@ function buildChrome() {
       { icon: 'star', label: 'Repertoire', onClick: () => navigate('/repertoire') },
       { icon: 'layers', label: 'Exercise sets', onClick: () => navigate('/sets') },
       { icon: 'settings', label: 'Settings', onClick: () => navigate('/settings') },
+      { icon: 'info', label: 'About', onClick: () => navigate('/about') },
     ])),
   }));
+
+  const buildInfo = document.getElementById('buildInfo');
+  if (buildInfo) {
+    buildInfo.innerHTML = `<span class="mono">v${VERSION}</span>${IS_BETA ? ' · <span style="color:var(--warn)">beta</span>' : ''}<br>AGPL-3.0 · offline`;
+    buildInfo.style.cursor = 'pointer';
+    buildInfo.title = 'About SnartChessBox';
+    buildInfo.addEventListener('click', () => navigate('/about'));
+  }
 
   document.getElementById('settingsBtn').innerHTML = icon('settings');
   document.getElementById('settingsBtn').addEventListener('click', () => navigate('/settings'));
