@@ -21,8 +21,9 @@ the whole app (engine included) is cached by a service worker so it works on a p
 - "Play on vs engine" when the line ends.
 
 **Repertoire builder**
-- Build a move tree by hand, import PGN (one game or a whole study), or **auto-build from
-  your own games**: branches you actually reach, weighted by frequency, pruned by
+- Build a move tree by hand, import PGN (**paste or load a file**, with a **player-name
+  filter** — drop in a master collection and build a Kasparov/Karpov repertoire), or
+  **auto-build from your own games**: branches you actually reach, weighted by frequency, pruned by
   `min games` / `max depth`.
 - **Exclude bad moves**: the engine evaluates every branch point and drops moves that lose
   more than N centipawns against the best move.
@@ -55,6 +56,23 @@ the whole app (engine included) is cached by a service worker so it works on a p
 - Colour per board (White / Black / alternate), base thinking time, debt cap, board order.
 - Score card (wins 1, draws ½), per-board status, resign, new exhibition.
 
+**Play vs engine (with your own opening book)**
+- Strength, think time, randomness window and a dedicated **Engine settings** dialog reachable
+  straight from the board — changing them mid-game applies from the next move.
+- **Book mode:** tick one or more repertoires and the engine plays their moves while the game
+  stays inside them, weighted by how often each line is stored. A badge next to the board says
+  *Book: <repertoire>* or *Engine — out of book*, and the Book dialog shows which repertoire
+  supplied the last move and how many book moves were played — so you see exactly where your
+  preparation ends and the engine takes over.
+- Games resume where you left them: open Settings (or any other screen) and come back, or use
+  the "Continue where you left off" card on the home screen.
+
+**PGN database**
+- Import large collections (file or paste); games live in their own IndexedDB store, only
+  metadata is kept in memory, so search stays instant.
+- Filter by player(s), event, year range, result, ECO and minimum length; review a game,
+  send it to memory training, export the filtered set as PGN, or build a repertoire from it.
+
 **Game memory**
 - 36 famous games (with sources) plus any game you add.
 - Study mode steps through the game; quiz mode replays it and asks you to reproduce your
@@ -72,6 +90,12 @@ the whole app (engine included) is cached by a service worker so it works on a p
 - Built-in sets (Basic mates, Pawn endings, Mate in one, Tactics mix, opening starters,
   Opera Game memory) plus your own.
 - Sessions run item by item with progress, skip/end, and a summary.
+
+**Board behaviour**
+- The side you play is at the bottom by default; *Settings → White always at the bottom* flips
+  that rule for good.
+- The board never moves under you: playing a move does not scroll the page, and the move list
+  scrolls inside its own box.
 
 **Mobile**
 - Pieces are filled SVG silhouettes (white = white fill with a dark rim) at 94 % of the

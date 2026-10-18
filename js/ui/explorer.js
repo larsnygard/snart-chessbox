@@ -13,6 +13,7 @@
 import { applySan, applyUci, START_FEN, formatEval, winProbability } from '../core/chessutil.js';
 import { addLine, removeLine, setComment, findMoveNode, treeStats, treeLines } from '../core/repertoire.js';
 import { createBoard } from './board.js';
+import { orientationFor } from './orientation.js';
 import { createBoardTools } from './board-tools.js';
 import { el, icon, modal, toast, confirmDialog } from './components.js';
 
@@ -45,7 +46,7 @@ export function createExplorer(host, opts = {}) {
 
   const board = createBoard(boardHost, {
     fen: tree.fen || START_FEN,
-    orientation: tree.color || 'w',
+    orientation: orientationFor(settings, tree.color || 'w'),
     theme: settings.boardTheme,
     pieceSet: settings.pieceSet,
     coords: settings.coords,

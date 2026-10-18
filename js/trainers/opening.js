@@ -12,6 +12,8 @@
 import { START_FEN, applySan, applyUci } from '../core/chessutil.js';
 import { movesAt, pickBookMove, findMoveNode } from '../core/repertoire.js';
 import { trainerShell } from '../ui/trainer-shell.js';
+import { saveResume, matchResume, clearResume } from '../ui/resume.js';
+import { orientationFor } from '../ui/orientation.js';
 import { enginePickUci, arrowOf, uciFromMove } from './common.js';
 
 export function mountOpening(host, ctx, opts) {
@@ -23,7 +25,7 @@ export function mountOpening(host, ctx, opts) {
 
   const shell = trainerShell(host, {
     fen: startFen,
-    orientation: side,
+    orientation: orientationFor(settings, side),
     theme: settings.boardTheme,
     pieceSet: settings.pieceSet,
     coords: settings.coords,
@@ -53,6 +55,29 @@ export function mountOpening(host, ctx, opts) {
     lastOpponentUci: null,
     viewPly: null, // null = the live position; a number = reviewing an earlier ply
   };
+
+  // resume an interrupted line (open Settings mid-line and come back)
+  const RESUME_KEY = opts.resumeKey || opts.progressKey || ('opening:' + (opts.title || 'line') + ':' + side);
+  const saved = opts.resume === false ? null : matchResume(RESUME_KEY);
+  if (saved && Array.isArray(saved.ucis) && saved.ucis.length) {
+    let f = startFen;
+    for (const uci of saved.ucis) {
+      const r = applyUci(f, uci);
+      if (!r) break;
+      f = r.fen;
+      st.ucis.push(uci);
+      st.sans.push(r.san);
+    }
+    st.fen = f;
+    st.free = !!saved.free;
+    st.lastOpponentUci = st.ucis.length ? st.ucis[st.ucis.length - 1] : null;
+  }
+
+  function persistResume() {
+    if (st.done || !st.ucis.length) return;
+    saveResume(RESUME_KEY, 'opening', { ucis: st.ucis.slice(), free: st.free },
+      opts.title || 'Opening line', '#/openings/' + encodeURIComponent(opts.openingId || '') + '?side=' + side);
+  }
 
   shell.setTitle(opts.title || 'Opening training', [
     { text: side === 'w' ? 'White' : 'Black', kind: '' },
@@ -145,6 +170,7 @@ export function mountOpening(host, ctx, opts) {
     st.ucis.push(uci);
     st.fen = res.fen;
     st.viewPly = null;
+    persistResume();
     renderBoard(uci);
     shell.setMoves(st.sans, st.sans.length - 1);
     ctx.sound.playForMove(res);
@@ -154,6 +180,7 @@ export function mountOpening(host, ctx, opts) {
 
   function restart() {
     st.seq++;
+    clearResume();
     Object.assign(st, { sans: [], ucis: [], fen: startFen, attempts: 0, usedHint: false, done: false, free: false, lastOpponentUci: null, viewPly: null });
     shell.setFeedback('', '');
     shell.setMoves([], -1);
@@ -264,6 +291,7 @@ export function mountOpening(host, ctx, opts) {
   function finish(reason, res) {
     if (st.done) return;
     st.done = true;
+    clearResume();
     const clean = st.attempts === 0 && !st.usedHint;
     st.lastOpponentUci = null;
     if (reason === 'game-over' && res) {
@@ -290,8 +318,10 @@ export function mountOpening(host, ctx, opts) {
     if (opts.onDone) opts.onDone({ clean, attempts: st.attempts, usedHint: st.usedHint, sans: st.sans });
   }
 
-  shell.setMoves([], -1);
+  shell.setMoves(st.sans, st.sans.length - 1);
+  renderBoard(null);
   updateStatus();
+  if (saved && st.ucis.length) shell.setFeedback('Resumed your line.', 'ok');
   if (turnOfFen(st.fen) !== side) scheduleOpponentIfNeeded(250);
   else if (startFen !== START_FEN) shell.board.setInteractive(true);
 

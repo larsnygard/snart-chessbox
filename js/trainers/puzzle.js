@@ -6,6 +6,7 @@
 
 import { applyUci } from '../core/chessutil.js';
 import { trainerShell } from '../ui/trainer-shell.js';
+import { orientationFor } from '../ui/orientation.js';
 import { arrowOf, uciFromMove } from './common.js';
 
 const THEME_TEXT = {
@@ -24,7 +25,7 @@ export function mountPuzzle(host, ctx, opts) {
 
   const shell = trainerShell(host, {
     fen: fen0,
-    orientation: solverSide,
+    orientation: orientationFor(settings, solverSide),
     theme: settings.boardTheme,
     pieceSet: settings.pieceSet,
     coords: settings.coords,

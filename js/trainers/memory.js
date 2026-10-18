@@ -6,6 +6,7 @@
 
 import { applyUci } from '../core/chessutil.js';
 import { trainerShell } from '../ui/trainer-shell.js';
+import { orientationFor } from '../ui/orientation.js';
 import { arrowOf, uciFromMove } from './common.js';
 
 export function mountMemory(host, ctx, opts) {
@@ -21,7 +22,7 @@ export function mountMemory(host, ctx, opts) {
 
   const shell = trainerShell(host, {
     fen: startFen,
-    orientation: opts.orientation || (side === 'b' ? 'b' : 'w'),
+    orientation: opts.orientation || orientationFor(settings, side === 'b' ? 'b' : 'w'),
     theme: settings.boardTheme,
     pieceSet: settings.pieceSet,
     coords: settings.coords,

@@ -107,6 +107,7 @@ function renderTrainer(host, id, query) {
     line: { sans: opening.moves, ucis: sansToUcis(START_FEN, opening.moves) },
     side,
     mode: 'line',
+    openingId: opening.id,
     progressKey: `opening:${opening.id}:${side}`,
     onNext: () => {
       if (!similar.length) return toast('No similar line found', '');

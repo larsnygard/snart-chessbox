@@ -12,6 +12,7 @@
 import { state, navigate, trainerCtx } from '../app.js';
 import { el, icon, toast, confirmDialog } from '../ui/components.js';
 import { createBoard } from '../ui/board.js';
+import { orientationFor } from '../ui/orientation.js';
 import { createBoardTools } from '../ui/board-tools.js';
 import { applyUci, START_FEN, turnOf, material } from '../core/chessutil.js';
 
@@ -159,7 +160,7 @@ export function render(host) {
     const g = focused();
     board = createBoard(boardHost, {
       fen: g.fen,
-      orientation: g.userColor,
+      orientation: orientationFor(state.settings, g.userColor),
       theme: state.settings.boardTheme,
       pieceSet: state.settings.pieceSet,
       coords: state.settings.coords,

@@ -169,6 +169,7 @@ export function render(host) {
       el('div', { class: 'dim', style: 'font-size:.8rem;margin-bottom:6px', text: 'Board theme' }), themeRow,
       el('div', { class: 'dim', style: 'font-size:.8rem;margin:12px 0 6px', text: 'Piece design' }), pieceRow,
       el('div', { style: 'margin-top:10px' },
+        toggle('whiteOnBottom', 'White always at the bottom', 'Off: the side you play is at the bottom (recommended).'),
         toggle('coords', 'Coordinates', ''),
         toggle('animate', 'Animate moves', ''))),
     previewHost);

@@ -112,8 +112,17 @@ export function trainerShell(host, opts = {}) {
         moveNo++;
         movesBox.append(...row);
       }
+      // scroll only inside the move list: scrollIntoView() also scrolls the page,
+      // which made the board jump while playing
       const cur = movesBox.querySelector('.mv.cur');
-      if (cur) cur.scrollIntoView({ block: 'nearest' });
+      if (cur) {
+        const top = cur.offsetTop - movesBox.offsetTop;
+        const bottom = top + cur.offsetHeight;
+        if (top < movesBox.scrollTop) movesBox.scrollTop = Math.max(0, top - 6);
+        else if (bottom > movesBox.scrollTop + movesBox.clientHeight) {
+          movesBox.scrollTop = bottom - movesBox.clientHeight + 6;
+        }
+      }
     },
     addTool(label, onClick, cls = 'btn sm') {
       const b = el('button', { class: cls, html: label, onclick: onClick });

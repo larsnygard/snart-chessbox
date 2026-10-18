@@ -9,6 +9,7 @@ import { reviewMoves, reviewSummary, blunderArrows, classInfo } from '../core/mo
 import { uid } from '../core/sets.js';
 import { download, exportName } from '../core/backup.js';
 import { createBoard } from '../ui/board.js';
+import { orientationFor } from '../ui/orientation.js';
 import { createBoardTools } from '../ui/board-tools.js';
 import { mountFreeplay } from '../trainers/freeplay.js';
 
@@ -200,7 +201,7 @@ function renderReview(host, id) {
 
   const board = createBoard(boardHost, {
     fen: positions[0],
-    orientation: userColor,
+    orientation: orientationFor(state.settings, userColor),
     theme: state.settings.boardTheme,
     pieceSet: state.settings.pieceSet,
     coords: state.settings.coords,

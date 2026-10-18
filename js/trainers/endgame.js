@@ -7,6 +7,8 @@
 import { applyUci, endgameInfo, material } from '../core/chessutil.js';
 import { judgeDrill, goalLabel } from '../core/endgames.js';
 import { trainerShell } from '../ui/trainer-shell.js';
+import { saveResume, matchResume, clearResume } from '../ui/resume.js';
+import { orientationFor } from '../ui/orientation.js';
 import { enginePickUci, arrowOf, uciFromMove, strengthLabel } from './common.js';
 
 export function mountEndgame(host, ctx, opts) {
@@ -17,7 +19,7 @@ export function mountEndgame(host, ctx, opts) {
 
   const shell = trainerShell(host, {
     fen: drill.fen,
-    orientation: userSide,
+    orientation: orientationFor(settings, userSide),
     theme: settings.boardTheme,
     pieceSet: settings.pieceSet,
     coords: settings.coords,
@@ -35,6 +37,28 @@ export function mountEndgame(host, ctx, opts) {
   });
 
   const st = { fen: drill.fen, history: [], userMoves: 0, done: false, busy: false, seq: 0, hints: 0, lastUci: null, lastOpp: null, status: 'running', viewPly: null };
+
+  // resume an interrupted drill (open Settings mid-game and come back)
+  const RESUME_KEY = 'endgame:' + drill.id;
+  const saved = opts.resume === false ? null : matchResume(RESUME_KEY);
+  if (saved && Array.isArray(saved.history) && saved.history.length) {
+    let f = drill.fen;
+    for (const h of saved.history) {
+      const r = applyUci(f, h.uci);
+      if (!r) break;
+      f = r.fen;
+      st.history.push({ uci: h.uci, san: r.san });
+    }
+    st.fen = f;
+    st.userMoves = saved.userMoves || 0;
+    st.lastUci = st.history.length ? st.history[st.history.length - 1].uci : null;
+  }
+
+  function persistResume() {
+    if (st.done || !st.history.length) return;
+    saveResume(RESUME_KEY, 'endgame', { history: st.history.map((h) => h.uci), userMoves: st.userMoves },
+      drill.title, '#/endgames/' + drill.id);
+  }
 
   shell.setTitle(drill.title, [
     { text: drill.goal === 'hold' ? 'Defence' : drill.goal === 'mate' ? 'Mate' : 'Promotion', kind: '' },
@@ -102,6 +126,7 @@ export function mountEndgame(host, ctx, opts) {
     st.lastUci = uci;
     st.viewPly = null;
     ctx.sound.playForMove(res);
+    persistResume();
     return res;
   }
 
@@ -192,6 +217,7 @@ export function mountEndgame(host, ctx, opts) {
 
   function restart() {
     st.seq++;
+    clearResume();
     Object.assign(st, { fen: drill.fen, history: [], userMoves: 0, done: false, hints: 0, lastUci: null, lastOpp: null, status: 'running' });
     shell.setFeedback('', '');
     paint();
@@ -200,6 +226,7 @@ export function mountEndgame(host, ctx, opts) {
 
   function finish(kind, reason) {
     st.done = true;
+    clearResume();
     st.status = kind;
     shell.board.setInteractive(false);
     const passed = kind === 'win';
@@ -219,6 +246,7 @@ export function mountEndgame(host, ctx, opts) {
   }
 
   paint();
+  if (saved && st.history.length) shell.setFeedback('Resumed your drill.', 'ok');
   if (turnOf(st.fen) !== userSide) engineReply();
 
   return { destroy() { st.done = true; st.seq++; shell.destroy(); } };

@@ -36,6 +36,8 @@
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
+html { scroll-behavior: auto; }
+body { overflow-anchor: none; }
 body {
   margin: 0;
   background: radial-gradient(1200px 700px at 20% -10%, #1a2333 0%, var(--bg) 55%) fixed;
@@ -263,7 +265,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   .trainer { grid-template-columns: 1fr; }
   .trainer .side-col { order: 2; }
 }
-.movelist { display: grid; grid-template-columns: 34px 1fr 1fr; gap: 2px 6px; font-family: var(--mono); font-size: 0.84rem; max-height: 230px; overflow-y: auto; padding-right: 4px; }
+.movelist { overflow-anchor: none; display: grid; grid-template-columns: 34px 1fr 1fr; gap: 2px 6px; font-family: var(--mono); font-size: 0.84rem; max-height: 230px; overflow-y: auto; padding-right: 4px; }
 .movelist .no { color: var(--text-faint); }
 .movelist .mv { padding: 1px 6px; border-radius: 6px; cursor: pointer; }
 .movelist .mv:hover { background: var(--bg-3); }
@@ -362,7 +364,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   background: linear-gradient(90deg, #f2f5fa, #c6d1e2); transition: width .25s ease; }
 
 /* ---------- move tree list ---------- */
-.mtree { display: flex; flex-direction: column; gap: 1px; font-family: var(--mono);
+.mtree { overflow-anchor: none; display: flex; flex-direction: column; gap: 1px; font-family: var(--mono);
   font-size: .84rem; max-height: 340px; overflow-y: auto; padding-right: 4px; }
 .mtree-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .mtree-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr); align-items: baseline;

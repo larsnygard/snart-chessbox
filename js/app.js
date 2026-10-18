@@ -6,6 +6,7 @@ import { getEngine } from './ui/engine.js';
 import * as sound from './ui/sound.js';
 import { toast, icon, el, clear } from './ui/components.js';
 import { review as srsReview } from './core/srs.js';
+import { initResume } from './ui/resume.js';
 import { makeSet, makeItem } from './core/sets.js';
 
 export const state = {
@@ -63,6 +64,7 @@ const NAV = [
   { id: 'simultan', label: 'Simultan', icon: 'simultan' },
   { id: 'memory', label: 'Memory', icon: 'brain' },
   { id: 'coach', label: 'My games', icon: 'game' },
+  { id: 'database', label: 'Database', icon: 'database' },
   { id: 'repertoire', label: 'Repertoire', icon: 'star' },
   { id: 'sets', label: 'Sets', icon: 'layers' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
@@ -79,6 +81,7 @@ async function loadViews() {
     simultan: './views/simultan.js',
     memory: './views/memory.js',
     coach: './views/coach.js',
+    database: './views/database.js',
     repertoire: './views/repertoire.js',
     sets: './views/sets.js',
     settings: './views/settings.js',
@@ -132,7 +135,7 @@ async function renderRoute() {
 function titleFor(name, route) {
   const map = {
     home: 'Train', openings: 'Openings', endgames: 'Endgames', puzzles: 'Puzzles',
-    simultan: 'Simultan', memory: 'Game memory', coach: 'My games', repertoire: 'Repertoire', sets: 'Exercise sets',
+    simultan: 'Simultan', memory: 'Game memory', coach: 'My games', database: 'PGN database', repertoire: 'Repertoire', sets: 'Exercise sets',
     settings: 'Settings', session: 'Session',
   };
   return map[name] || 'SnartChessBox';
@@ -169,6 +172,7 @@ function buildChrome() {
       { icon: 'simultan', label: 'Simultan', onClick: () => navigate('/simultan') },
       { icon: 'brain', label: 'Game memory', onClick: () => navigate('/memory') },
       { icon: 'game', label: 'My games (coaching)', onClick: () => navigate('/coach') },
+      { icon: 'database', label: 'PGN database', onClick: () => navigate('/database') },
       { icon: 'star', label: 'Repertoire', onClick: () => navigate('/repertoire') },
       { icon: 'layers', label: 'Exercise sets', onClick: () => navigate('/sets') },
       { icon: 'settings', label: 'Settings', onClick: () => navigate('/settings') },
@@ -278,6 +282,7 @@ async function boot() {
       state[key] = v === null || v === undefined ? (key === 'progress' || key === 'analyses' ? {} : []) : v;
     }
     sound.configure({ sound: state.settings.sound, vol: state.settings.volume });
+    await initResume();
     boostEngineState('loading');
     if (bootMsg) bootMsg.textContent = 'Loading openings, puzzles and famous games…';
     state.data = await data.loadData();

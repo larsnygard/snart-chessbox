@@ -74,14 +74,33 @@ function renderList(host) {
       el('option', { value: 'games', text: 'Auto-build from my imported games' }),
       el('option', { value: 'pgn', text: 'Import PGN now' }));
     const pgnArea = el('textarea', { placeholder: 'Paste PGN lines or games…', class: 'hidden' });
+    const pgnFile = el('input', { type: 'file', accept: '.pgn,.txt,text/plain', class: 'hidden' });
+    const playerFilter = el('input', { type: 'text', placeholder: 'Only games with these players (comma separated, optional)' });
+    const keepColour = el('input', { type: 'checkbox', checked: true });
+    const pgnTools = el('div', { class: 'hidden' });
     const options = el('div', { class: 'split hidden' });
     const maxPly = el('input', { type: 'number', value: '20', min: '4', max: '60' });
     const minCount = el('input', { type: 'number', value: '1', min: '1', max: '20' });
     options.append(
       el('label', { class: 'field' }, el('span', { text: 'Include up to (plies)' }), maxPly),
       el('label', { class: 'field' }, el('span', { text: 'Only moves seen in at least N games' }), minCount));
+    pgnFile.addEventListener('change', async () => {
+      const f = pgnFile.files && pgnFile.files[0];
+      if (!f) return;
+      pgnArea.value = await f.text();
+      toast(`${f.name} loaded — press Create`, '');
+    });
+    pgnTools.append(
+      el('div', { class: 'row', style: 'margin:6px 0' },
+        el('button', { class: 'btn sm', html: `${icon('upload')}<span>Load PGN file…</span>`, onclick: () => pgnFile.click() }),
+        el('span', { class: 'faint', style: 'font-size:.76rem', text: 'a file, a study export, a master collection' })),
+      el('label', { class: 'field' }, el('span', { text: 'Player filter' }), playerFilter),
+      el('label', { class: 'check' }, keepColour, el('span', { text: 'Only games where the chosen colour was played by that player' })),
+      pgnFile);
     source.addEventListener('change', () => {
-      pgnArea.classList.toggle('hidden', source.value !== 'pgn');
+      const isPgn = source.value === 'pgn';
+      pgnArea.classList.toggle('hidden', !isPgn);
+      pgnTools.classList.toggle('hidden', !isPgn);
       options.classList.toggle('hidden', source.value !== 'games');
     });
 
@@ -92,7 +111,7 @@ function renderList(host) {
         el('div', { class: 'split' },
           el('label', { class: 'field' }, el('span', { text: 'Colour' }), color),
           el('label', { class: 'field' }, el('span', { text: 'Source' }), source)),
-        options, pgnArea,
+        options, pgnArea, pgnTools,
         el('p', { class: 'faint', style: 'font-size:.78rem', text: 'Auto-build needs imported games (My games tab). It keeps the moves you play, weighted by frequency.' })),
       actions: [
         { label: 'Cancel' },
@@ -108,11 +127,21 @@ function renderList(host) {
               trep.tree = buildFromGames(games, { color: color.value, maxPly: Number(maxPly.value) || 20, minCount: Number(minCount.value) || 1 });
               trep.description = `Auto-built from ${games.length} game(s)`;
             } else if (source.value === 'pgn') {
-              const parsed = parsePGN(pgnArea.value);
+              const names = playerFilter.value.toLowerCase().split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+              const parsed = parsePGN(pgnArea.value).filter((g) => {
+                if (!names.length) return true;
+                const w = (g.headers.White || '').toLowerCase();
+                const b = (g.headers.Black || '').toLowerCase();
+                if (!names.some((n) => w.includes(n) || b.includes(n))) return false;
+                if (!keepColour.checked) return true;
+                // keep only games where the repertoire colour was played by a filtered player
+                const mine = color.value === 'w' ? w : b;
+                return names.some((n) => mine.includes(n));
+              });
               let n = 0;
               for (const g of parsed) if (g.moves.length) { addLine(trep.tree, g.moves.slice(0, 40)); n++; }
-              if (!n) { toast('No legal moves found in that PGN', 'bad'); return false; }
-              trep.description = `Imported from ${n} PGN game(s)`;
+              if (!n) { toast('No legal moves found for that filter', 'bad'); return false; }
+              trep.description = `Imported from ${n} PGN game(s)${names.length ? ' — ' + names.join(', ') : ''}`;
             }
             state.repertoires = (state.repertoires || []).concat([trep]);
             persist('repertoires', true);
@@ -217,17 +246,35 @@ function renderEditor(host, id, query) {
 
   // ---------- tree-level dialogs
   function importDialog() {
-    const area = el('textarea', { placeholder: 'Paste a PGN (one or more games, or a study export)…', style: 'min-height:200px' });
+    const area = el('textarea', { placeholder: 'Paste a PGN (one or more games, or a study export)…', style: 'min-height:180px' });
+    const file = el('input', { type: 'file', accept: '.pgn,.txt,text/plain', style: 'display:none' });
+    const player = el('input', { type: 'text', placeholder: 'Only games with these players (comma separated, optional)' });
+    file.addEventListener('change', async () => {
+      const f = file.files && file.files[0];
+      if (!f) return;
+      area.value = await f.text();
+      toast(`${f.name} loaded`, '');
+    });
     modal({
       title: 'Import PGN into this repertoire',
       body: el('div', {},
-        area,
-        el('p', { class: 'faint', style: 'font-size:.78rem', text: 'All legal moves in each game are merged into the tree. Variations are ignored; comments are dropped.' })),
+        el('div', { class: 'row', style: 'margin-bottom:8px' },
+          el('button', { class: 'btn sm', html: `${icon('upload')}<span>Load PGN file…</span>`, onclick: () => file.click() }),
+          el('span', { class: 'faint', style: 'font-size:.76rem', text: 'a file, a study export, a master collection' })),
+        area, file,
+        el('label', { class: 'field', style: 'margin-top:10px' }, el('span', { text: 'Player filter' }), player),
+        el('p', { class: 'faint', style: 'font-size:.78rem', text: 'All legal moves in each matching game are merged into the tree. Variations are ignored; comments are dropped.' })),
       actions: [
         { label: 'Cancel' },
         {
           label: 'Import', primary: true, onClick: () => {
-            const games = parsePGN(area.value);
+            const names = player.value.toLowerCase().split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+            const games = parsePGN(area.value).filter((g) => {
+              if (!names.length) return true;
+              const w = (g.headers.White || '').toLowerCase();
+              const b = (g.headers.Black || '').toLowerCase();
+              return names.some((n) => w.includes(n) || b.includes(n));
+            });
             let n = 0;
             for (const g of games) {
               if (!g.moves.length) continue;

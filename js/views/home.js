@@ -6,6 +6,7 @@ import { mastery, dueItems } from '../core/srs.js';
 import { estimateMinutes, describeItem } from '../core/sets.js';
 import { data } from '../app.js';
 import { ENDGAME_DRILLS } from '../core/endgames.js';
+import { describeResume } from '../ui/resume.js';
 
 export function render(host) {
   const s = state.settings;
@@ -35,6 +36,15 @@ export function render(host) {
         el('span', { class: 'v', text: String(puzzles.due + endgames.due + openings.due + memories.due) })),
       el('div', { class: 'dim', style: 'font-size:.8rem;margin-top:6px', text: 'Items the scheduler wants to see again today.' })),
   );
+
+  const resume = describeResume();
+  const resumeCard = resume ? el('div', { class: 'card', style: 'margin:14px 0;border-color:rgba(55,185,138,.35)' },
+    el('div', { class: 'row', style: 'gap:12px' },
+      el('span', { html: icon('play'), style: 'color:var(--accent)' }),
+      el('div', { style: 'flex:1' },
+        el('strong', { text: 'Continue where you left off' }),
+        el('div', { class: 'dim', style: 'font-size:.82rem', text: `${resume.label || resume.kind} · ${resume.ago}` })),
+      el('button', { class: 'btn primary', text: 'Resume', onclick: () => navigate(resume.goHash || '/home') }))) : null;
 
   const stats = el('div', { class: 'grid cols-3', style: 'margin:18px 0' },
     statCard('Puzzles', puzzles, '/puzzles', 'puzzle'),
@@ -81,7 +91,7 @@ export function render(host) {
       jumpCard('My repertoire', 'Drill the lines you actually play', 'star', () => navigate('/repertoire')),
     ));
 
-  host.append(hero, stats, setsSection, jump);
+  host.append(hero, resumeCard || el('span'), stats, setsSection, jump);
 
   function quickStart() {
     const due = Object.entries(state.progress || {}).filter(([, v]) => !v.due || v.due <= Date.now());

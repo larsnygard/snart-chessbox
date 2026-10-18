@@ -4,8 +4,9 @@
 
 const DB_NAME = 'snart-chessbox';
 const LEGACY_DB = 'snart-chess-trainer'; // previous name of this app
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = 'kv';
+const GAMES_STORE = 'pgnGames'; // imported PGN database, kept out of the kv blob
 const LS_SETTINGS = 'scb.settings.v1';
 
 export const DEFAULT_SETTINGS = {
@@ -27,6 +28,9 @@ export const DEFAULT_SETTINGS = {
   coords: true,
   animate: true,
   autoFlip: false,
+  whiteOnBottom: false, // false: the side you play is at the bottom
+  playBookRepIds: [], // repertoires the engine plays from in free play
+
   // sound
   sound: true,
   volume: 0.6,
@@ -56,6 +60,13 @@ export class Store {
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+        if (!db.objectStoreNames.contains(GAMES_STORE)) {
+          const games = db.createObjectStore(GAMES_STORE, { keyPath: 'id' });
+          games.createIndex('whiteLower', 'whiteLower');
+          games.createIndex('blackLower', 'blackLower');
+          games.createIndex('year', 'year');
+          games.createIndex('result', 'result');
+        }
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => resolve(null);
@@ -185,6 +196,66 @@ export class Store {
       const req = this.db.transaction(STORE, 'readwrite').objectStore(STORE).clear();
       req.onsuccess = () => resolve();
       req.onerror = () => resolve();
+    });
+  }
+
+  // ---- PGN database records (separate object store; not part of the kv blob)
+  async putGameRecords(records) {
+    if (!records || !records.length) return;
+    await this.open();
+    if (!this.db) {
+      // fallback: keep them in the kv store so nothing is silently lost
+      const cur = await this.get('pgnGamesFallback', []);
+      await this.set('pgnGamesFallback', cur.concat(records));
+      return;
+    }
+    await new Promise((resolve) => {
+      const tx = this.db.transaction(GAMES_STORE, 'readwrite');
+      const st = tx.objectStore(GAMES_STORE);
+      for (const r of records) st.put(r);
+      tx.oncomplete = resolve;
+      tx.onerror = resolve;
+      tx.onabort = resolve;
+    });
+  }
+
+  async getGame(id) {
+    await this.open();
+    if (!this.db) {
+      const all = await this.get('pgnGamesFallback', []);
+      return all.find((g) => g.id === id) || null;
+    }
+    return await new Promise((resolve) => {
+      const q = this.db.transaction(GAMES_STORE, 'readonly').objectStore(GAMES_STORE).get(id);
+      q.onsuccess = () => resolve(q.result || null);
+      q.onerror = () => resolve(null);
+    });
+  }
+
+  async deleteGameRecords(ids) {
+    await this.open();
+    if (!this.db) {
+      const all = await this.get('pgnGamesFallback', []);
+      await this.set('pgnGamesFallback', all.filter((g) => !ids.includes(g.id)));
+      return;
+    }
+    await new Promise((resolve) => {
+      const tx = this.db.transaction(GAMES_STORE, 'readwrite');
+      const st = tx.objectStore(GAMES_STORE);
+      for (const id of ids) st.delete(id);
+      tx.oncomplete = resolve;
+      tx.onerror = resolve;
+    });
+  }
+
+  async clearGameRecords() {
+    await this.open();
+    if (!this.db) { await this.set('pgnGamesFallback', []); return; }
+    await new Promise((resolve) => {
+      const tx = this.db.transaction(GAMES_STORE, 'readwrite');
+      tx.objectStore(GAMES_STORE).clear();
+      tx.oncomplete = resolve;
+      tx.onerror = resolve;
     });
   }
 

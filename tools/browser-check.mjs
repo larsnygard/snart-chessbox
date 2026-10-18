@@ -189,7 +189,8 @@ await goto('/#/settings');
 await page.locator('select').first().selectOption('softmax').catch(() => {});
 await page.waitForTimeout(500);
 const stored = await page.evaluate(async () => {
-  const db = await new Promise((res) => { const r = indexedDB.open('snart-chessbox', 1); r.onsuccess = () => res(r.result); r.onerror = () => res(null); });
+  // open without a version: the schema version is an implementation detail
+  const db = await new Promise((res) => { const r = indexedDB.open('snart-chessbox'); r.onsuccess = () => res(r.result); r.onerror = () => res(null); r.onblocked = () => res(null); });
   if (!db) return null;
   return await new Promise((res) => {
     const q = db.transaction('kv', 'readonly').objectStore('kv').get('settings');
