@@ -1,0 +1,23 @@
+# SnartChessBox — cache policy
+#
+# The site sits behind a shared Varnish cache that keeps objects for minutes.
+# Without an explicit policy a fresh deploy can keep serving the previous build,
+# so make every response revalidate and let the service worker provide the
+# offline cache instead.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|json|js|css|webmanifest)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  <FilesMatch "\.(png|svg|wasm)$">
+    Header set Cache-Control "public, max-age=300"
+  </FilesMatch>
+</IfModule>
+
+# Correct MIME types (some hosts do not know .wasm / .webmanifest)
+<IfModule mod_mime.c>
+  AddType application/wasm .wasm
+  AddType application/manifest+json .webmanifest
+</IfModule>
+
+# Never serve the raw directory listing for the app root
+Options -Indexes
