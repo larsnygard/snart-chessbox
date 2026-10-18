@@ -1,19 +1,22 @@
-// js/views/repertoire.js — build, edit and train your own opening repertoire.
+// js/views/repertoire.js — build, browse, edit and train your own repertoire.
 //
 // Three ways in:
 //   * empty tree, add lines by hand or from the opening database
 //   * import PGN (a study, a course export, your own games)
 //   * auto-build from your imported game library, keeping the branches you
 //     actually play and optionally dropping engine-flagged bad moves
+//
+// Browse shows every continuation of the current position as an arrow on the
+// board. Edit lets you jump to any move, annotate it, replace or delete it, and
+// turns any new move played on the board into a new variation.
 
 import { state, navigate, persist, trainerCtx } from '../app.js';
 import { el, icon, toast, modal, confirmDialog } from '../ui/components.js';
-import { parsePGN, wrapMovetext, buildPGN } from '../core/pgn.js';
-import { START_FEN, applySan, applyUci } from '../core/chessutil.js';
-import { emptyTree, addLine, removeLine, buildFromGames, treeLines, treeStats, annotateLosses, dropBadMoves, findMoveNode, movesAt, setComment, mergeTrees } from '../core/repertoire.js';
+import { parsePGN, buildPGN } from '../core/pgn.js';
+import { emptyTree, addLine, buildFromGames, treeLines, treeStats, annotateLosses, dropBadMoves, mergeTrees } from '../core/repertoire.js';
 import { uid } from '../core/sets.js';
-import { createBoard } from '../ui/board.js';
-import { mountOpening, sansToUcis } from '../trainers/opening.js';
+import { createExplorer } from '../ui/explorer.js';
+import { mountOpening } from '../trainers/opening.js';
 import { download, exportName } from '../core/backup.js';
 
 export function render(host, params, query) {
@@ -28,7 +31,7 @@ function renderList(host) {
     el('div', { class: 'row', style: 'gap:16px' },
       el('div', { style: 'flex:1' },
         el('h2', { text: 'Your repertoire' }),
-        el('p', { class: 'dim', style: 'margin:0', html: 'A repertoire is a move tree for one colour. Import it from PGN, build it automatically from your own games, or add lines by hand. Training plays the tree from the opponent side, so you rehearse your real lines.' })),
+        el('p', { class: 'dim', style: 'margin:0', html: 'A repertoire is a move tree for one colour. Import it from PGN, build it automatically from your own games, or add lines by hand. <b>Browse</b> shows every continuation of a position as an arrow; <b>Edit</b> turns any new move into a new variation.' })),
       el('button', { class: 'btn primary', html: `${icon('plus')}<span>New repertoire</span>`, onclick: () => newDialog() }))));
 
   if (!reps.length) {
@@ -45,12 +48,13 @@ function renderList(host) {
           el('span', { class: 'faint', style: 'font-size:.75rem', text: `${st.leaves} lines · depth ${st.maxDepth}` })),
         el('div', { class: 'dim', style: 'font-size:.82rem;min-height:2.4em', text: rep.description || 'No description' }),
         el('div', { class: 'row tight', style: 'margin-top:8px' },
+          el('button', { class: 'btn sm', text: 'Browse', onclick: () => navigate('/repertoire/' + rep.id + '?tab=browse') }),
+          el('button', { class: 'btn sm', text: 'Edit', onclick: () => navigate('/repertoire/' + rep.id + '?tab=edit') }),
           el('button', { class: 'btn sm primary', text: 'Train', onclick: () => navigate('/repertoire/' + rep.id + '?tab=train') }),
-          el('button', { class: 'btn sm', text: 'Edit', onclick: () => navigate('/repertoire/' + rep.id) }),
-          el('button', { class: 'btn sm ghost', text: 'PGN', onclick: () => exportRep(rep) }),
           el('div', { class: 'spacer' }),
+          el('button', { class: 'btn sm ghost', text: 'PGN', onclick: () => exportRep(rep) }),
           el('button', {
-            class: 'btn sm ghost icon', html: icon('trash'), onclick: async () => {
+            class: 'btn sm ghost icon', html: icon('trash'), title: 'Delete', onclick: async () => {
               if (await confirmDialog({ title: 'Delete repertoire?', text: `“${rep.name}” and its move tree will be removed.` })) {
                 state.repertoires = state.repertoires.filter((r) => r.id !== rep.id);
                 persist('repertoires', true);
@@ -70,7 +74,7 @@ function renderList(host) {
       el('option', { value: 'games', text: 'Auto-build from my imported games' }),
       el('option', { value: 'pgn', text: 'Import PGN now' }));
     const pgnArea = el('textarea', { placeholder: 'Paste PGN lines or games…', class: 'hidden' });
-    const options = el('div', { class: 'split' });
+    const options = el('div', { class: 'split hidden' });
     const maxPly = el('input', { type: 'number', value: '20', min: '4', max: '60' });
     const minCount = el('input', { type: 'number', value: '1', min: '1', max: '20' });
     options.append(
@@ -80,7 +84,6 @@ function renderList(host) {
       pgnArea.classList.toggle('hidden', source.value !== 'pgn');
       options.classList.toggle('hidden', source.value !== 'games');
     });
-    options.classList.add('hidden');
 
     modal({
       title: 'New repertoire',
@@ -113,7 +116,7 @@ function renderList(host) {
             }
             state.repertoires = (state.repertoires || []).concat([trep]);
             persist('repertoires', true);
-            navigate('/repertoire/' + trep.id);
+            navigate('/repertoire/' + trep.id + '?tab=browse');
           },
         },
       ],
@@ -147,157 +150,72 @@ function renderList(host) {
 function renderEditor(host, id, query) {
   const rep = (state.repertoires || []).find((r) => r.id === id);
   if (!rep) { host.append(el('div', { class: 'empty', text: 'Repertoire not found.' })); return { destroy() {} }; }
-  const tab = query.tab === 'train' ? 'train' : 'edit';
+  const tab = ['browse', 'edit', 'train'].includes(query.tab) ? query.tab : 'browse';
+
+  let explorer = null;
+  let trainer = null;
+
+  const tabsRow = el('div', { class: 'row', style: 'gap:6px' });
+  const actionsRow = el('div', { class: 'row', style: 'gap:6px;margin-left:auto' });
 
   const top = el('div', { class: 'row', style: 'margin-bottom:10px;gap:8px;flex-wrap:wrap' },
     el('button', { class: 'btn ghost sm', html: `${icon('back')}<span>Repertoires</span>`, onclick: () => navigate('/repertoire') }),
     el('strong', { text: rep.name }),
     el('span', { class: 'badge', text: rep.color === 'w' ? 'White' : 'Black' }),
-    el('div', { class: 'spacer' }),
-    el('button', { class: 'btn sm' + (tab === 'edit' ? ' primary' : ''), text: 'Edit tree', onclick: () => navigate('/repertoire/' + rep.id) }),
-    el('button', { class: 'btn sm' + (tab === 'train' ? ' primary' : ''), text: 'Train', onclick: () => navigate('/repertoire/' + rep.id + '?tab=train') }));
-  host.append(top);
+    tabsRow, actionsRow);
   const body = el('div');
-  host.append(body);
+  host.append(top, body);
 
-  if (tab === 'train') {
-    const lines = treeLines(rep.tree, 1);
-    const st = treeStats(rep.tree);
-    if (!st.nodes) {
-      body.append(el('div', { class: 'empty', text: 'This repertoire has no moves yet. Add lines or import a PGN first.' }));
-      return { destroy() {} };
+  function drawChrome() {
+    tabsRow.innerHTML = '';
+    for (const [key, label] of [['browse', 'Browse'], ['edit', 'Edit'], ['train', 'Train']]) {
+      tabsRow.append(el('button', {
+        class: 'btn sm' + (tab === key ? ' primary' : ''), text: label,
+        onclick: () => navigate(`/repertoire/${rep.id}?tab=${key}`),
+      }));
     }
-    const handle = mountOpening(body, trainerCtx(), {
-      title: rep.name,
-      subtitle: `<span class="badge">${rep.color === 'w' ? 'White' : 'Black'}</span> ${st.leaves} lines · opponent picks your most played replies`,
-      tree: rep.tree,
-      side: rep.color,
-      mode: 'tree',
-      progressKey: `repertoire:${rep.id}`,
-      onNext: () => navigate('/repertoire/' + rep.id + '?tab=train'),
-    });
-    return { destroy() { handle.destroy(); } };
+    actionsRow.innerHTML = '';
+    if (tab !== 'train') {
+      actionsRow.append(
+        el('button', { class: 'btn sm', text: 'Import PGN', onclick: () => importDialog() }),
+        el('button', { class: 'btn sm', text: 'From my games', onclick: () => buildDialog() }),
+        el('button', { class: 'btn sm danger', text: 'Exclude bad moves', onclick: () => badMoveDialog() }));
+    }
   }
 
-  // ---------- edit tab ----------
-  const layout = el('div', { class: 'trainer' });
-  const boardCol = el('div', { class: 'board-col' });
-  const sideCol = el('div', { class: 'side-col' });
-  const boardHost = el('div');
-  const treeCard = el('div', { class: 'card' });
-  const treeBox = el('div', { class: 'tree', style: 'max-height:420px;overflow:auto' });
-  const statsEl = el('div', { class: 'dim', style: 'font-size:.8rem;margin-bottom:8px' });
-  const lineInput = el('input', { type: 'text', placeholder: 'Add a line: e4 c5 Nf3 d6 d4 cxd4 Nxd4' });
-  const commentInput = el('textarea', { placeholder: 'Comment for the selected position', style: 'min-height:70px' });
-
-  boardCol.append(boardHost);
-  treeCard.append(
-    el('div', { class: 'card-head' }, el('h3', { text: 'Move tree' }), el('div', { class: 'spacer' }),
-      el('button', { class: 'btn sm', text: 'Import PGN', onclick: () => importDialog() }),
-      el('button', { class: 'btn sm', text: 'From my games', onclick: () => buildDialog() })),
-    statsEl, treeBox);
-  sideCol.append(treeCard,
-    el('div', { class: 'card' },
-      el('h3', { text: 'Edit' }),
-      el('div', { class: 'stack', style: 'gap:8px' },
-        lineInput,
-        el('div', { class: 'row' },
-          el('button', { class: 'btn sm primary', text: 'Add line', onclick: addLineHandler }),
-          el('button', { class: 'btn sm', text: 'Save', onclick: save })),
-        commentInput,
-        el('div', { class: 'row' },
-          el('button', { class: 'btn sm', text: 'Save comment', onclick: saveComment }),
-          el('div', { class: 'spacer' }),
-          el('button', { class: 'btn sm danger', text: 'Exclude bad moves', onclick: () => badMoveDialog() })))));
-  layout.append(boardCol, sideCol);
-  body.append(layout);
-
-  const board = createBoard(boardHost, {
-    fen: START_FEN, orientation: rep.color, theme: state.settings.boardTheme,
-    pieceSet: state.settings.pieceSet, coords: state.settings.coords, animate: false, interactive: false,
-  });
-
-  let selectedPath = [];
-
-  function save() {
-    rep.updated = Date.now();
-    persist('repertoires', true);
-    toast('Saved', 'ok');
-  }
-
-  function addLineHandler() {
-    const raw = lineInput.value.replace(/\d+\.(\.\.)?/g, ' ').replace(/[!?]+/g, '').trim();
-    if (!raw) return;
-    const sans = raw.split(/\s+/);
-    const res = addLine(rep.tree, sans);
-    if (!res.ok) { toast(`Illegal move: ${res.at}`, 'bad'); return; }
-    lineInput.value = '';
-    save();
-    draw();
-    toast('Line added', 'ok');
-  }
-
-  function saveComment() {
-    if (!selectedPath.length) { toast('Select a move first', ''); return; }
-    setComment(rep.tree, selectedPath, commentInput.value);
-    save();
-    toast('Comment saved', 'ok');
-  }
-
-  function draw() {
-    const st = treeStats(rep.tree);
-    statsEl.textContent = `${st.nodes} positions · ${st.leaves} lines · max depth ${st.maxDepth} plies`;
-    treeBox.innerHTML = '';
-    if (!rep.tree.moves.length) {
-      treeBox.append(el('div', { class: 'faint', style: 'font-size:.84rem', text: 'Empty. Add a line, import PGN, or auto-build from your games.' }));
+  function mountTab() {
+    if (explorer) { explorer.destroy(); explorer = null; }
+    if (trainer) { trainer.destroy(); trainer = null; }
+    body.innerHTML = '';
+    if (tab === 'train') {
+      const st = treeStats(rep.tree);
+      if (!st.nodes) {
+        body.append(el('div', { class: 'empty', text: 'This repertoire has no moves yet. Add lines or import a PGN first.' }));
+        return;
+      }
+      trainer = mountOpening(body, trainerCtx(), {
+        title: rep.name,
+        subtitle: `<span class="badge">${rep.color === 'w' ? 'White' : 'Black'}</span> ${st.leaves} lines · the opponent picks your most-played replies`,
+        tree: rep.tree,
+        side: rep.color,
+        mode: 'tree',
+        progressKey: `repertoire:${rep.id}`,
+        onNext: () => navigate('/repertoire/' + rep.id + '?tab=train'),
+      });
       return;
     }
-    treeBox.append(renderNode(rep.tree, [], 0));
-    paintBoard(selectedPath);
-  }
-
-  function renderNode(node, path, depth) {
-    const wrap = el('div', { class: 'node', style: depth === 0 ? 'border:0;padding-left:0' : '' });
-    node.moves.forEach((m, i) => {
-      const nextPath = path.concat(m.san);
-      const label = el('div', { class: 'row tight', style: 'gap:4px' },
-        el('span', {
-          class: 'mv' + (m.bad ? ' bad' : ''),
-          style: selectedPath.join(' ') === nextPath.join(' ') ? 'background:var(--accent-soft);color:#d8fff2' : '',
-          html: `${m.san}${m.count > 1 ? ` <span class="faint">×${m.count}</span>` : ''}`,
-          onclick: () => { selectedPath = nextPath; commentInput.value = (m.children && m.children.comment) || ''; draw(); },
-        }),
-        el('button', {
-          class: 'btn ghost sm icon', style: 'padding:0 4px', title: 'Delete branch', html: icon('x'),
-          onclick: (e) => {
-            e.stopPropagation();
-            if (!m.children || m.children.moves.length === 0 || confirm(`Delete the branch after ${m.san}?`)) {
-              removeLine(rep.tree, nextPath);
-              save();
-              draw();
-            }
-          },
-        }));
-      wrap.append(label);
-      if (m.children && m.children.moves.length) {
-        wrap.append(renderNode(m.children, nextPath, depth + 1));
-      }
+    explorer = createExplorer(body, {
+      tree: rep.tree,
+      editable: tab === 'edit',
+      settings: state.settings,
+      engine: trainerCtx().engine,
+      title: tab === 'edit' ? 'Edit repertoire' : 'Browse repertoire',
+      onChange: () => { rep.updated = Date.now(); persist('repertoires', true); },
+      onPlayFromHere: (fen, turn) => navigate(`/coach?fen=${encodeURIComponent(fen)}&side=${turn}&title=${encodeURIComponent('From your repertoire')}`),
     });
-    return wrap;
   }
 
-  function paintBoard(path) {
-    let fen = START_FEN;
-    let last = null;
-    for (const san of path) {
-      const r = applySan(fen, san);
-      if (!r) break;
-      fen = r.fen;
-      last = { from: r.from, to: r.to };
-    }
-    board.setPosition(fen, { last, arrows: [], clearSelection: true });
-  }
-
+  // ---------- tree-level dialogs
   function importDialog() {
     const area = el('textarea', { placeholder: 'Paste a PGN (one or more games, or a study export)…', style: 'min-height:200px' });
     modal({
@@ -317,7 +235,9 @@ function renderEditor(host, id, query) {
               n++;
             }
             if (!n) { toast('No legal moves found', 'bad'); return false; }
-            save(); draw();
+            rep.updated = Date.now();
+            persist('repertoires', true);
+            if (explorer) explorer.refresh();
             toast(`Merged ${n} game(s)`, 'ok');
           },
         },
@@ -332,7 +252,6 @@ function renderEditor(host, id, query) {
       navigate('/coach');
       return;
     }
-    const name = (state.settings.username || '').toLowerCase();
     const maxPly = el('input', { type: 'number', value: '20', min: '4', max: '60' });
     const minCount = el('input', { type: 'number', value: '2', min: '1', max: '10' });
     const excludeBad = el('input', { type: 'checkbox' });
@@ -354,7 +273,8 @@ function renderEditor(host, id, query) {
       actions: [
         { label: 'Cancel' },
         {
-          label: 'Build', primary: true, onClick: async (x) => {
+          label: 'Build', primary: true, onClick: async () => {
+            const name = (state.settings.username || '').toLowerCase();
             const filtered = games.filter((g) => {
               if (!name) return true;
               const w = (g.white || '').toLowerCase().includes(name);
@@ -364,11 +284,11 @@ function renderEditor(host, id, query) {
             if (!filtered.length) { toast('No games for that colour', 'bad'); return false; }
             const target = buildFromGames(filtered, { color: rep.color, maxPly: Number(maxPly.value) || 20, minCount: Number(minCount.value) || 1 });
             const tree = merge.checked ? mergeTrees(rep.tree, target) : target;
-            if (excludeBad.checked) {
-              await filterBadMoves(tree, Number(threshold.value) || 80, info);
-            }
+            if (excludeBad.checked) await filterBadMoves(tree, Number(threshold.value) || 80, info);
             rep.tree = tree;
-            save(); draw();
+            rep.updated = Date.now();
+            persist('repertoires', true);
+            if (explorer) explorer.refresh();
             toast('Repertoire built', 'ok');
           },
         },
@@ -390,7 +310,9 @@ function renderEditor(host, id, query) {
         {
           label: 'Run filter', primary: true, onClick: async () => {
             await filterBadMoves(rep.tree, Number(threshold.value) || 80, info);
-            save(); draw();
+            rep.updated = Date.now();
+            persist('repertoires', true);
+            if (explorer) explorer.refresh();
             toast('Bad moves removed', 'ok');
           },
         },
@@ -425,6 +347,7 @@ function renderEditor(host, id, query) {
     if (infoEl) infoEl.textContent = `Removed ${removed} branch(es) that lose more than ${maxLoss} cp.`;
   }
 
-  draw();
-  return { destroy() { board.destroy(); } };
+  drawChrome();
+  mountTab();
+  return { destroy() { if (explorer) explorer.destroy(); if (trainer) trainer.destroy(); } };
 }

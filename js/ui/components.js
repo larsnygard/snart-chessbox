@@ -53,6 +53,8 @@ const ICONS = {
   dots: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.6v.1"/>',
   shuffle: '<path d="M17 4h4v4"/><path d="M21 4 4 21"/><path d="M17 20h4v-4"/><path d="M3 4l6 6"/>',
+  pencil: '<path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m14.5 5.5 4 4"/>',
+  plus2: '<path d="M12 6v12M6 12h12"/>',
 };
 
 export function icon(name, cls = 'ico') {

@@ -2,6 +2,7 @@
 // board on the left (sticky on desktop), information/controls on the right.
 
 import { createBoard } from './board.js';
+import { createBoardTools } from './board-tools.js';
 import { el, icon } from './components.js';
 
 export function trainerShell(host, opts = {}) {
@@ -19,8 +20,9 @@ export function trainerShell(host, opts = {}) {
   const statusRow = el('div', { class: 'row', style: 'gap:8px' });
   const statusEl = el('div', { class: 'board-status' });
   const toolbar = el('div', { class: 'board-toolbar' });
+  const toolsRow = el('div');
 
-  boardCol.append(topRow, boardHost, statusRow);
+  boardCol.append(topRow, boardHost, statusRow, toolsRow);
   statusRow.append(statusEl, el('div', { class: 'spacer' }), toolbar);
 
   const infoCard = el('div', { class: 'card' });
@@ -52,8 +54,20 @@ export function trainerShell(host, opts = {}) {
     onMove: (m) => opts.onMove && opts.onMove(m),
   });
 
+  // Every board gets the same strip: move navigation (when the screen has a
+  // move cursor), the eval bar, the engine switch and "play from this position".
+  const tools = createBoardTools(toolsRow, {
+    board,
+    settings: opts.settings || {},
+    engine: opts.engine,
+    nav: opts.nav || null,
+    allowEngine: opts.allowEngine !== false,
+    onPlayFromHere: opts.onPlayFromHere,
+  });
+  board.onPosition(() => tools.refresh());
+
   const api = {
-    board, wrap, toolbar, extra, actions, infoCard, sideCol,
+    board, wrap, toolbar, extra, actions, infoCard, sideCol, tools,
     setTitle(text, badges = []) {
       titleEl.innerHTML = `<span>${text}</span>`;
       badgeRow.innerHTML = '';

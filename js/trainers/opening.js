@@ -28,6 +28,14 @@ export function mountOpening(host, ctx, opts) {
     pieceSet: settings.pieceSet,
     coords: settings.coords,
     animate: settings.animate,
+    settings,
+    nav: {
+      first: () => setView(0),
+      back: () => setView((st.viewPly ?? st.ucis.length) - 1),
+      forward: () => setView((st.viewPly ?? st.ucis.length) + 1),
+      last: () => setView(st.ucis.length),
+      state: () => ({ atStart: (st.viewPly ?? st.ucis.length) === 0, atEnd: st.viewPly === null || st.viewPly === undefined }),
+    },
     startTurn: startFen.split(' ')[1],
     onMove: (m) => onUserMove(m),
   });
@@ -43,6 +51,7 @@ export function mountOpening(host, ctx, opts) {
     busy: false,
     seq: 0,
     lastOpponentUci: null,
+    viewPly: null, // null = the live position; a number = reviewing an earlier ply
   };
 
   shell.setTitle(opts.title || 'Opening training', [
@@ -82,20 +91,51 @@ export function mountOpening(host, ctx, opts) {
 
   function updateStatus() {
     const turn = turnOfFen(st.fen);
-    if (st.done) { shell.setStatus('<span class="faint">Line finished</span>'); return; }
+    const live = st.viewPly === null || st.viewPly === undefined;
+    if (st.done) {
+      shell.setStatus('<span class="faint">Line finished</span>');
+      shell.board.setInteractive(false);
+      return;
+    }
+    if (!live) {
+      shell.setStatus(`Reviewing ply ${st.viewPly} of ${st.ucis.length} · <span class="faint">press ▶| to return to the live position</span>`);
+      shell.board.setInteractive(false);
+      return;
+    }
     if (turn === side) shell.setStatus(st.free ? '<b>Your move</b> — free play' : '<b>Your move</b>');
     else shell.setStatus('<span class="faint">Opponent is moving…</span>');
     shell.board.setInteractive(turn === side && !st.done);
   }
 
+  function viewFen() {
+    if (st.viewPly === null || st.viewPly === undefined) return st.fen;
+    let f = startFen;
+    for (let i = 0; i < st.viewPly; i++) {
+      const r = applyUci(f, st.ucis[i]);
+      if (!r) break;
+      f = r.fen;
+    }
+    return f;
+  }
+
+  /** Review an earlier ply without touching the game state. */
+  function setView(n) {
+    const max = st.ucis.length;
+    const v = Math.max(0, Math.min(max, n));
+    st.viewPly = v === max ? null : v;
+    renderBoard(null);
+    updateStatus();
+  }
+
   function renderBoard(lastUci) {
     const arrows = [];
     if (st.lastOpponentUci) arrows.push(arrowOf(st.lastOpponentUci, 'best'));
-    shell.board.setPosition(st.fen, {
-      last: lastUci ? { from: lastUci.slice(0, 2), to: lastUci.slice(2, 4) } : null,
-      arrows,
-      clearSelection: true,
-    });
+    const live = st.viewPly === null || st.viewPly === undefined;
+    const viewed = live ? null : st.ucis[st.viewPly - 1];
+    const last = lastUci
+      ? { from: lastUci.slice(0, 2), to: lastUci.slice(2, 4) }
+      : viewed ? { from: viewed.slice(0, 2), to: viewed.slice(2, 4) } : null;
+    shell.board.setPosition(viewFen(), { last, arrows, clearSelection: true });
   }
 
   function commit(uci) {
@@ -104,6 +144,7 @@ export function mountOpening(host, ctx, opts) {
     st.sans.push(res.san);
     st.ucis.push(uci);
     st.fen = res.fen;
+    st.viewPly = null;
     renderBoard(uci);
     shell.setMoves(st.sans, st.sans.length - 1);
     ctx.sound.playForMove(res);
@@ -113,7 +154,7 @@ export function mountOpening(host, ctx, opts) {
 
   function restart() {
     st.seq++;
-    Object.assign(st, { sans: [], ucis: [], fen: startFen, attempts: 0, usedHint: false, done: false, free: false, lastOpponentUci: null });
+    Object.assign(st, { sans: [], ucis: [], fen: startFen, attempts: 0, usedHint: false, done: false, free: false, lastOpponentUci: null, viewPly: null });
     shell.setFeedback('', '');
     shell.setMoves([], -1);
     renderBoard(null);

@@ -9,6 +9,7 @@ import { reviewMoves, reviewSummary, blunderArrows, classInfo } from '../core/mo
 import { uid } from '../core/sets.js';
 import { download, exportName } from '../core/backup.js';
 import { createBoard } from '../ui/board.js';
+import { createBoardTools } from '../ui/board-tools.js';
 import { mountFreeplay } from '../trainers/freeplay.js';
 
 export function render(host, params, query) {
@@ -183,7 +184,7 @@ function renderReview(host, id) {
   const boardCol = el('div', { class: 'board-col' });
   const sideCol = el('div', { class: 'side-col' });
   const boardHost = el('div');
-  const navRow = el('div', { class: 'row', style: 'gap:6px' });
+  const toolsRow = el('div');
   const statusRow = el('div', { class: 'row' });
   const card = el('div', { class: 'card' });
   const summaryEl = el('div', { class: 'stack', style: 'gap:8px' });
@@ -191,7 +192,7 @@ function renderReview(host, id) {
   const movesTable = el('div', { style: 'max-height:340px;overflow-y:auto;margin-top:10px' });
   const feedback = el('div', { class: 'feedback hidden' });
 
-  boardCol.append(boardHost, statusRow, navRow);
+  boardCol.append(boardHost, statusRow, toolsRow);
   card.append(el('h2', { text: 'Review', style: 'font-size:1rem;margin:0 0 8px' }), summaryEl, feedback, analysisBtnRow, movesTable);
   sideCol.append(card);
   layout.append(boardCol, sideCol);
@@ -214,13 +215,20 @@ function renderReview(host, id) {
   let busy = false;
   let cancel = false;
 
-  const navBtns = {
-    first: el('button', { class: 'btn icon sm', html: icon('start'), onclick: () => setCursor(0) }),
-    prev: el('button', { class: 'btn icon sm', html: icon('back'), onclick: () => setCursor(cursor - 1) }),
-    next: el('button', { class: 'btn icon sm', html: icon('next'), onclick: () => setCursor(cursor + 1) }),
-    last: el('button', { class: 'btn icon sm', html: icon('end'), onclick: () => setCursor(ucis.length) }),
-  };
-  navRow.append(navBtns.first, navBtns.prev, navBtns.next, navBtns.last);
+  // standard strip: move navigation, eval bar, engine switch, play-from-here
+  const tools = createBoardTools(toolsRow, {
+    board,
+    settings: state.settings,
+    nav: {
+      first: () => setCursor(0),
+      back: () => setCursor(cursor - 1),
+      forward: () => setCursor(cursor + 1),
+      last: () => setCursor(ucis.length),
+      state: () => ({ atStart: cursor === 0, atEnd: cursor >= ucis.length }),
+    },
+    onPlayFromHere: (fen, turn) => navigate(`/coach?fen=${encodeURIComponent(fen)}&side=${turn}&title=${encodeURIComponent('From your game')}`),
+  });
+  board.onPosition(() => tools.refresh());
   const playBtn = el('button', {
     class: 'btn sm', text: 'Play from here',
     onclick: () => {

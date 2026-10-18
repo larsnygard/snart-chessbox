@@ -344,6 +344,57 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .an-table td.n { font-family: var(--mono); color: var(--text-faint); }
 .cls-B { color: #ffb9b9; } .cls-M { color: #e8b978; } .cls-I { color: #e6d98a; } .cls-G { color: #b9d99a; }
 
+
+/* ---------- board tools strip (every board) ---------- */
+.board-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.navgroup { display: flex; gap: 2px; background: #121822; border: 1px solid var(--border-soft); border-radius: 9px; padding: 2px; }
+.navgroup .btn { padding: 4px 6px; background: transparent; border-color: transparent; }
+.navgroup .btn:hover:not(:disabled) { background: #1e2735; }
+.navgroup .btn:disabled { opacity: 0.3; }
+.eval-text { font-family: var(--mono); font-size: .8rem; min-width: 56px; text-align: center; padding: 2px 6px;
+  border-radius: 6px; background: #10151d; border: 1px solid var(--border-soft); color: var(--text-dim); }
+.eval-text.pos { color: #d8ffe9; }
+.eval-text.neg { color: #ffc9c9; }
+.eval-depth { font-size: .7rem; width: 28px; }
+.evalbar { position: relative; flex: 1 1 90px; min-width: 70px; max-width: 240px; height: 9px; border-radius: 99px;
+  background: #0a0e14; border: 1px solid var(--border-soft); overflow: hidden; }
+.evalbar .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 50%;
+  background: linear-gradient(90deg, #f2f5fa, #c6d1e2); transition: width .25s ease; }
+
+/* ---------- move tree list ---------- */
+.mtree { display: flex; flex-direction: column; gap: 1px; font-family: var(--mono);
+  font-size: .84rem; max-height: 340px; overflow-y: auto; padding-right: 4px; }
+.mtree-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.mtree-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr); align-items: baseline;
+  gap: 6px; padding: 2px 0; border-radius: 6px; }
+.mtree-row:hover { background: rgba(255,255,255,0.02); }
+.mtree-cell { display: flex; align-items: baseline; gap: 3px; flex-wrap: wrap; min-width: 0; }
+.mtree-start { background: #131a24; border: 1px solid var(--border-soft); color: var(--text-dim);
+  font-size: .72rem; padding: 2px 7px; border-radius: 6px; cursor: pointer; }
+.mtree-start:hover { color: var(--text); }
+.mtree-start.cur { background: var(--accent-soft); color: #d8fff2; border-color: rgba(55,185,138,.4); }
+.mtree-no { color: var(--text-faint); font-size: .78rem; }
+.mtree-row { display: inline-flex; align-items: center; gap: 1px; }
+.mtree-mv { background: none; border: 0; color: var(--text); font-family: var(--mono); font-size: .84rem;
+  padding: 2px 5px; border-radius: 6px; cursor: pointer; }
+.mtree-mv:hover { background: var(--bg-3); }
+.mtree-mv.cur { background: var(--accent-soft); color: #d8fff2; }
+.mtree-edit { background: none; border: 0; color: #8d99ad; padding: 0 2px; cursor: pointer; opacity: .8; }
+.mtree-row:hover .mtree-edit, .mtree-cell:focus-within .mtree-edit, .mtree-mv.cur + .mtree-edit { opacity: 1; }
+.mtree-edit .ico { width: 13px; height: 13px; }
+.mtree-edit:hover { color: var(--accent); }
+.mtree-alts { display: inline-flex; gap: 2px; margin-left: 3px; font-size: .78rem; color: var(--text-faint); }
+.mtree-alt { background: #151b25; border: 1px solid var(--border-soft); color: var(--text-dim);
+  font-family: var(--mono); font-size: .74rem; padding: 1px 5px; border-radius: 5px; cursor: pointer; }
+.mtree-alt:hover { color: var(--text); border-color: var(--border); background: #1d2532; }
+.mtree-line { display: block; width: 100%; text-align: left; background: none; border: 0;
+  color: var(--text-dim); font-family: var(--mono); font-size: .78rem; padding: 3px 4px; border-radius: 5px; cursor: pointer; }
+.mtree-line:hover { background: var(--bg-3); color: var(--text); }
+@media (max-width: 860px) {
+  .mtree { max-height: 220px; font-size: .8rem; }
+  .evalbar { max-width: none; }
+}
+
 /* ---------- responsive ---------- */
 @media (max-width: 860px) {
   #app { display: block; }
@@ -372,7 +423,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 @media (min-width: 981px) {
   .board-sticky { position: sticky; top: 76px; }
   /* keep the board inside the viewport instead of scrolling the page */
-  .trainer .board-col { max-width: min(100%, calc(100dvh - 210px)); }
+  .trainer .board-col { max-width: min(100%, calc(100dvh - 265px)); }
 }
 
 /* reduced motion */

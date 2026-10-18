@@ -18,11 +18,19 @@ export function mountFreeplay(host, ctx, opts = {}) {
     pieceSet: settings.pieceSet,
     coords: settings.coords,
     animate: settings.animate,
+    settings,
+    nav: {
+      first: () => setView(0),
+      back: () => setView((st.viewPly ?? st.history.length) - 1),
+      forward: () => setView((st.viewPly ?? st.history.length) + 1),
+      last: () => setView(st.history.length),
+      state: () => ({ atStart: (st.viewPly ?? st.history.length) === 0, atEnd: st.viewPly === null || st.viewPly === undefined }),
+    },
     startTurn: startFen.split(' ')[1],
     onMove: (m) => onUserMove(m),
   });
 
-  const st = { fen: startFen, history: [], done: false, seq: 0, lastOpp: null, lastUci: null, evalCp: null, thinking: false };
+  const st = { fen: startFen, history: [], done: false, seq: 0, lastOpp: null, lastUci: null, evalCp: null, thinking: false, viewPly: null };
 
   shell.setTitle(opts.title || 'Play vs engine', [
     { text: side === 'w' ? 'You are White' : 'You are Black', kind: '' },
@@ -43,14 +51,41 @@ export function mountFreeplay(host, ctx, opts = {}) {
 
   function turnOf(fen) { return fen.split(' ')[1] === 'b' ? 'b' : 'w'; }
 
+  function viewFen() {
+    if (st.viewPly === null || st.viewPly === undefined) return st.fen;
+    let f = startFen;
+    for (let i = 0; i < st.viewPly; i++) {
+      const r = applyUci(f, st.history[i].uci);
+      if (!r) break;
+      f = r.fen;
+    }
+    return f;
+  }
+
+  function setView(n) {
+    const max = st.history.length;
+    const v = Math.max(0, Math.min(max, n));
+    st.viewPly = v === max ? null : v;
+    paint();
+  }
+
   function paint() {
-    shell.board.setPosition(st.fen, {
-      last: st.lastUci ? { from: st.lastUci.slice(0, 2), to: st.lastUci.slice(2, 4) } : null,
-      arrows: st.lastOpp ? [arrowOf(st.lastOpp, 'best')] : [],
+    const live = st.viewPly === null || st.viewPly === undefined;
+    const viewed = live ? null : st.history[st.viewPly - 1];
+    shell.board.setPosition(viewFen(), {
+      last: live
+        ? (st.lastUci ? { from: st.lastUci.slice(0, 2), to: st.lastUci.slice(2, 4) } : null)
+        : (viewed ? { from: viewed.uci.slice(0, 2), to: viewed.uci.slice(2, 4) } : null),
+      arrows: live && st.lastOpp ? [arrowOf(st.lastOpp, 'best')] : [],
       clearSelection: true,
     });
-    const myTurn = turnOf(st.fen) === side && !st.done;
+    const myTurn = live && turnOf(st.fen) === side && !st.done;
     shell.board.setInteractive(myTurn);
+    if (!live) {
+      shell.setStatus(`Reviewing ply ${st.viewPly} of ${st.history.length} · <span class="faint">press ▶| to return</span>`);
+      shell.setMoves(st.history.map((h) => h.san), st.viewPly - 1);
+      return;
+    }
     shell.setStatus(myTurn ? '<b>Your move</b>' : (st.done ? '<span class="faint">Game over</span>' : '<span class="faint">Engine is thinking…</span>'));
     shell.setMoves(st.history.map((h) => h.san), st.history.length - 1);
     if (st.evalCp !== null) evalEl.textContent = `Last engine eval: ${(st.evalCp / 100).toFixed(2)}`;
@@ -62,6 +97,7 @@ export function mountFreeplay(host, ctx, opts = {}) {
     st.fen = res.fen;
     st.history.push({ uci, san: res.san });
     st.lastUci = uci;
+    st.viewPly = null;
     ctx.sound.playForMove(res);
     return res;
   }
@@ -144,7 +180,7 @@ export function mountFreeplay(host, ctx, opts = {}) {
 
   function reset() {
     st.seq++;
-    Object.assign(st, { fen: startFen, history: [], done: false, lastOpp: null, lastUci: null, evalCp: null });
+    Object.assign(st, { fen: startFen, history: [], done: false, lastOpp: null, lastUci: null, evalCp: null, viewPly: null });
     shell.setFeedback('', '');
     paint();
     if (turnOf(st.fen) !== side) engineTurn();

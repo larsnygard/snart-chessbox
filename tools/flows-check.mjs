@@ -176,14 +176,75 @@ await page.waitForTimeout(200);
 await page.locator('.modal textarea').first().fill(
   '[Event "R1"]\n\n1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 1-0\n\n[Event "R2"]\n\n1. e4 c5 2. Nf3 Nc6 3. Bb5 1-0');
 await page.locator('.modal button:has-text("Create")').first().click();
-await page.waitForTimeout(1200);
-const treeMoves = await page.locator('.tree .mv').count();
-check('repertoire built from PGN shows a move tree', treeMoves >= 6, `${treeMoves} nodes`);
-const statsText = await page.locator('.card .dim').first().textContent().catch(() => '');
-check('repertoire stats report lines and depth', /lines/.test(statsText || ''), (statsText || '').trim().slice(0, 50));
+await page.waitForTimeout(1400);
+const treeMoves = await page.locator('.mtree-mv').count();
+check('repertoire built from PGN opens the browser with a move list', treeMoves >= 6, `${treeMoves} moves listed`);
+const badgeText = await page.locator('.card-head .badge').first().textContent().catch(() => '');
+check('browser reports lines and positions', /lines/.test(badgeText || ''), (badgeText || '').trim().slice(0, 50));
+
+// browse: every continuation of the start position is an arrow on the board
+const startArrows = await page.locator('.arrows .arrow-line').count();
+check('browse mode draws arrows for the repertoire moves', startArrows >= 1, `${startArrows} arrows at the start position`);
 await page.screenshot({ path: OUT + '/flow-repertoire.png' });
 
-// scope to the view: the sidebar also has a nav item called "Train"
+// clicking a move in the list sets the board on that move
+const firstMove = await page.locator('.mtree-mv').first().textContent();
+await page.locator('.mtree-mv').first().click();
+await page.waitForTimeout(400);
+const afterClickStatus = await page.locator('.board-status').first().textContent().catch(() => '');
+check('clicking a move puts the board on that move', new RegExp('Move 1 · ' + firstMove.replace(/[+!?]/g, '')).test(afterClickStatus || ''), (afterClickStatus || '').trim().slice(0, 60));
+
+// clicking an alternative in the list switches to that variation
+const altCount = await page.locator('.mtree-alt').count();
+if (altCount) {
+  const altSan = await page.locator('.mtree-alt').first().textContent();
+  await page.locator('.mtree-alt').first().click();
+  await page.waitForTimeout(400);
+  const altStatus = await page.locator('.board-status').first().textContent().catch(() => '');
+  check('choosing a variation moves the board to it', altStatus.includes(altSan.trim()), `${altSan.trim()} → ${(altStatus || '').trim().slice(0, 50)}`);
+} else {
+  check('choosing a variation moves the board to it', false, 'no alternatives rendered');
+}
+
+// arrows are clickable: playing the second arrow follows that branch
+const arrowsBefore = await page.locator('.arrows .arrow-hit').count();
+check('continuation arrows are clickable hit targets', arrowsBefore >= 1, `${arrowsBefore} hit areas`);
+
+// edit: playing a new move creates a variation instead of overwriting the line
+await page.locator('.content .btn:has-text("Edit")').first().click();
+await page.waitForTimeout(1200);
+const editsBefore = await page.locator('.mtree-alt').count();
+await clickSquare('d2');
+await clickSquare('d4');
+await page.waitForTimeout(900);
+const variationToast = await page.locator('.toast').last().textContent().catch(() => '');
+const editsAfter = await page.locator('.mtree-alt').count();
+check('playing a different move starts a variation', /new variation/i.test(variationToast || '') && editsAfter >= editsBefore,
+  `toast “${(variationToast || '').trim()}”, alternatives ${editsBefore}→${editsAfter}`);
+
+// edit button on a move
+await page.locator('.mtree-edit').first().click();
+await page.waitForTimeout(400);
+const editModal = await page.locator('.modal').first().textContent().catch(() => '');
+check('every move has an edit dialog', /Change move/.test(editModal || '') && /Add comment|Edit comment/.test(editModal || ''), (editModal || '').trim().slice(0, 60));
+await page.keyboard.press('Escape');
+
+// browse again: the new variation must show up as an extra arrow, and the
+// nav arrows must step the board back/forward through the move list
+await page.locator('.content .btn:has-text("Browse")').first().click();
+await page.waitForTimeout(1000);
+const rootArrows = await page.locator('.arrows .arrow-line').count();
+check('every repertoire move at the position is drawn as an arrow', rootArrows >= 2, `${rootArrows} arrows at the start position`);
+await page.locator('.mtree-mv').first().click();
+await page.waitForTimeout(400);
+const afterFwd = await page.locator('.board-status').first().textContent().catch(() => '');
+await page.locator('.navgroup button').nth(1).click();
+await page.waitForTimeout(400);
+const afterBack = await page.locator('.board-status').first().textContent().catch(() => '');
+check('move-list arrows step back and forward', /Move 1/.test(afterFwd || '') && /Starting position/.test(afterBack || ''),
+  `${(afterFwd || '').trim().slice(0, 22)} → ${(afterBack || '').trim().slice(0, 22)}`);
+
+// train tab still works
 await page.locator('.content .btn:has-text("Train")').first().click();
 await page.waitForTimeout(1500);
 const repStatus = await page.locator('.board-status').first().textContent().catch(() => '');
@@ -193,6 +254,12 @@ await clickSquare('e4');
 await page.waitForTimeout(1500);
 const repMoves = await page.locator('.movelist').first().textContent().catch(() => '');
 check('repertoire trainer accepts a book move and replies', /e4/.test(repMoves) && /c5|Nf3|Nc6/.test(repMoves), repMoves.trim().slice(0, 40));
+
+// play engine from this position -> free play on the same board
+await page.locator('button:has-text("Play engine from here")').first().click();
+await page.waitForTimeout(1500);
+const playground = await page.evaluate(() => location.hash);
+check('board has a permanent "play engine from this position" button', /coach\?fen=/.test(playground), playground.slice(0, 60));
 
 // ---------------------------------------------------------------- 6c. spread test button
 await goto('/#/settings');

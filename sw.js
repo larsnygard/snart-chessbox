@@ -5,7 +5,7 @@
 // does not work. Bump VERSION on any asset change — `activate` is what purges
 // the stale build from installed devices.
 
-const VERSION = 'v1.0.0-9';
+const VERSION = 'v1.1.0-2';
 const CACHE = `snart-chess-trainer-${VERSION}`;
 
 const ASSETS = [
@@ -32,6 +32,8 @@ const ASSETS = [
   './js/trainers/opening.js',
   './js/trainers/puzzle.js',
   './js/ui/board.js',
+  './js/ui/board-tools.js',
+  './js/ui/explorer.js',
   './js/ui/components.js',
   './js/ui/data.js',
   './js/ui/engine.js',

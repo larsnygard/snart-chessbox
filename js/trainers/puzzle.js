@@ -29,6 +29,8 @@ export function mountPuzzle(host, ctx, opts) {
     pieceSet: settings.pieceSet,
     coords: settings.coords,
     animate: settings.animate,
+    settings,
+    allowEngine: false, // the engine would solve the puzzle for you
     startTurn: solverSide,
     onMove: (m) => onUserMove(m),
   });

@@ -22,11 +22,19 @@ export function mountEndgame(host, ctx, opts) {
     pieceSet: settings.pieceSet,
     coords: settings.coords,
     animate: settings.animate,
+    settings,
+    nav: {
+      first: () => setView(0),
+      back: () => setView((st.viewPly ?? st.history.length) - 1),
+      forward: () => setView((st.viewPly ?? st.history.length) + 1),
+      last: () => setView(st.history.length),
+      state: () => ({ atStart: (st.viewPly ?? st.history.length) === 0, atEnd: st.viewPly === null || st.viewPly === undefined }),
+    },
     startTurn: drill.fen.split(' ')[1],
     onMove: (m) => onUserMove(m),
   });
 
-  const st = { fen: drill.fen, history: [], userMoves: 0, done: false, busy: false, seq: 0, hints: 0, lastUci: null, lastOpp: null, status: 'running' };
+  const st = { fen: drill.fen, history: [], userMoves: 0, done: false, busy: false, seq: 0, hints: 0, lastUci: null, lastOpp: null, status: 'running', viewPly: null };
 
   shell.setTitle(drill.title, [
     { text: drill.goal === 'hold' ? 'Defence' : drill.goal === 'mate' ? 'Mate' : 'Promotion', kind: '' },
@@ -44,13 +52,41 @@ export function mountEndgame(host, ctx, opts) {
   function turnOf(fen) { return fen.split(' ')[1] === 'b' ? 'b' : 'w'; }
   function myTurn() { return turnOf(st.fen) === userSide && !st.done; }
 
+  function viewFen() {
+    if (st.viewPly === null || st.viewPly === undefined) return st.fen;
+    let f = drill.fen;
+    for (let i = 0; i < st.viewPly; i++) {
+      const r = applyUci(f, st.history[i].uci);
+      if (!r) break;
+      f = r.fen;
+    }
+    return f;
+  }
+
+  /** Review an earlier ply without touching the drill state. */
+  function setView(n) {
+    const max = st.history.length;
+    const v = Math.max(0, Math.min(max, n));
+    st.viewPly = v === max ? null : v;
+    paint();
+  }
+
   function paint() {
-    shell.board.setPosition(st.fen, {
-      last: st.lastUci ? { from: st.lastUci.slice(0, 2), to: st.lastUci.slice(2, 4) } : null,
-      arrows: st.lastOpp ? [arrowOf(st.lastOpp, 'best')] : [],
+    const live = st.viewPly === null || st.viewPly === undefined;
+    const viewed = live ? null : st.history[st.viewPly - 1];
+    shell.board.setPosition(viewFen(), {
+      last: live
+        ? (st.lastUci ? { from: st.lastUci.slice(0, 2), to: st.lastUci.slice(2, 4) } : null)
+        : (viewed ? { from: viewed.uci.slice(0, 2), to: viewed.uci.slice(2, 4) } : null),
+      arrows: live && st.lastOpp ? [arrowOf(st.lastOpp, 'best')] : [],
       clearSelection: true,
     });
-    shell.board.setInteractive(myTurn());
+    shell.board.setInteractive(live && myTurn());
+    if (st.viewPly !== null && st.viewPly !== undefined) {
+      shell.setStatus(`Reviewing ply ${st.viewPly} of ${st.history.length} · <span class="faint">press ▶| to return</span>`);
+      shell.setMoves(st.history.map((h) => h.san), st.viewPly - 1);
+      return;
+    }
     const turn = turnOf(st.fen);
     const who = turn === userSide ? '<b>Your move</b>' : '<span class="faint">Engine is thinking…</span>';
     const budget = drill.goal === 'hold' ? `Survive ${Math.max(0, drill.maxMoves - st.userMoves)} more` : `Move ${Math.min(st.userMoves + 1, drill.maxMoves)} of ${drill.maxMoves}`;
@@ -64,6 +100,7 @@ export function mountEndgame(host, ctx, opts) {
     st.fen = res.fen;
     st.history.push({ uci, san: res.san });
     st.lastUci = uci;
+    st.viewPly = null;
     ctx.sound.playForMove(res);
     return res;
   }

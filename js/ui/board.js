@@ -25,6 +25,7 @@ export function createBoard(host, opts = {}) {
     coords: opts.coords !== false,
     animate: opts.animate !== false,
     arrows: [],
+    engineArrows: [],
     last: null,
     check: null,
     selected: null,
@@ -152,8 +153,13 @@ export function createBoard(host, opts = {}) {
   }
 
   function renderArrows() {
-    const body = state.arrows.map((a) => {
-      if (!a || !a.from || !a.to || a.from === a.to) return '';
+    // Two layers: `arrows` belongs to the screen (book moves, hints, blunders),
+    // `engineArrows` is owned by the engine panel and must not clobber them.
+    const all = state.arrows.concat(state.engineArrows).filter((a) => a && a.from && a.to && a.from !== a.to);
+    const defs = svg.querySelector('defs');
+    svg.innerHTML = '';
+    svg.append(defs);
+    all.forEach((a, i) => {
       const f = cellOfSquare(a.from), t = cellOfSquare(a.to);
       const x1 = f.col + 0.5, y1 = f.row + 0.5, x2 = t.col + 0.5, y2 = t.row + 0.5;
       const dx = x2 - x1, dy = y2 - y1;
@@ -163,13 +169,24 @@ export function createBoard(host, opts = {}) {
       const ex = x2 - ux * 0.26, ey = y2 - uy * 0.26;
       const color = a.color === 'bad' ? '#e05656' : a.color === 'best' ? '#37b98a' : '#3d8bfd';
       const marker = a.color === 'bad' ? 'ah-bad' : a.color === 'best' ? 'ah-best' : 'ah-hint';
-      return `<line class="arrow-line" x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width="0.13" marker-end="url(#${marker})" opacity="0.92"/>`;
-    }).join('');
-    // keep the <defs>
-    const defs = svg.querySelector('defs');
-    svg.innerHTML = '';
-    svg.append(defs);
-    svg.insertAdjacentHTML('beforeend', body);
+      const alpha = a.weak ? 0.55 : 0.92;
+      const wide = a.weak ? 0.085 : 0.13;
+      // invisible fat line first: an arrow is a 0.13-unit stroke, far too thin to tap
+      svg.insertAdjacentHTML('beforeend', `<line class="arrow-hit" data-i="${i}" x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="transparent" stroke-width="0.6"/>`);
+      svg.insertAdjacentHTML('beforeend', `<line class="arrow-line" x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width="${wide}" marker-end="url(#${marker})" opacity="${alpha}"/>`);
+      void alpha;
+    });
+    // re-bind: innerHTML above replaced the nodes
+    if (opts.onArrow) {
+      for (const hit of svg.querySelectorAll('.arrow-hit')) {
+        hit.addEventListener('pointerdown', (ev) => {
+          ev.stopPropagation();
+          ev.preventDefault();
+          const a = all[Number(hit.dataset.i)];
+          if (a) opts.onArrow(a);
+        });
+      }
+    }
   }
 
   function paintHighlights() {
@@ -315,9 +332,11 @@ export function createBoard(host, opts = {}) {
   paintHighlights();
   renderArrows();
 
+  let positionCb = null;
   const api = {
     root,
     board,
+    onPosition(cb) { positionCb = cb; },
     get fen() { return state.fen; },
     get orientation() { return state.orientation; },
     get selected() { return state.selected; },
@@ -338,8 +357,11 @@ export function createBoard(host, opts = {}) {
       renderPieces(animateFrom);
       paintHighlights();
       renderArrows();
+      if (positionCb) positionCb(fen);
     },
     setArrows(arrows) { state.arrows = arrows || []; renderArrows(); },
+    setEngineArrows(arrows) { state.engineArrows = arrows || []; renderArrows(); },
+    getArrows() { return state.arrows.slice(); },
     setOrientation(o) {
       state.orientation = o === 'b' ? 'b' : 'w';
       state.selected = null;

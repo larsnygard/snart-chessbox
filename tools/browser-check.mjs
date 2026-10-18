@@ -112,6 +112,32 @@ await page.waitForTimeout(2500);
 const movesText = await page.locator('.movelist').first().textContent();
 check('engine replies in an endgame drill', /Qg3/.test(movesText) && /K[a-h][1-8]/.test(movesText), movesText.trim().slice(0, 60));
 
+// move-list navigation on a live drill
+await page.locator('.navgroup button').nth(1).click();
+await page.waitForTimeout(300);
+const backStatus = await page.locator('.board-status').first().textContent().catch(() => '');
+check('move-list back arrow reviews the previous ply', /Reviewing ply/i.test(backStatus || ''), (backStatus || '').trim().slice(0, 50));
+await page.locator('.navgroup button').nth(3).click();
+await page.waitForTimeout(300);
+const liveStatus = await page.locator('.board-status').first().textContent().catch(() => '');
+check('move-list forward-to-end returns to the live position', /Your move|thinking/i.test(liveStatus || ''), (liveStatus || '').trim().slice(0, 40));
+
+// ---- 4b. the board strip: eval bar + engine switch + play-from-here
+const hasTools = await page.locator('.board-tools').count();
+const hasEvalBar = await page.locator('.evalbar').count();
+const playFromHere = await page.locator('button:has-text("Play engine from here")').count();
+check('every board carries the tool strip (eval bar, engine, play-from-here)', hasTools >= 1 && hasEvalBar >= 1 && playFromHere >= 1,
+  `tools ${hasTools}, bars ${hasEvalBar}, play buttons ${playFromHere}`);
+await page.locator('button:has-text("Engine: off")').first().click();
+const evalUpdated = await page.waitForFunction(() => {
+  const t = document.querySelector('.eval-text');
+  return t && t.textContent && t.textContent !== '—' && t.textContent.trim().length > 0;
+}, null, { timeout: 20000 }).then(() => true).catch(() => false);
+const evalTextNow = await page.locator('.eval-text').first().textContent().catch(() => '');
+check('engine switch fills the eval bar', evalUpdated, evalTextNow);
+const engineArrows = await page.locator('.arrows .arrow-line').count();
+check('engine draws its best move as an arrow', engineArrows >= 1, `${engineArrows} arrows`);
+
 // ---- 5. puzzles: solve a real mate-in-1 by clicking the solution
 const puzzleData = JSON.parse(readFileSync(new URL('../data/puzzles.json', import.meta.url), 'utf8'));
 const mate1 = puzzleData.puzzles.find((p) => (p.themes || []).includes('mateIn1') && p.sol.length === 1 && p.fen.split(' ')[1] === 'w');
@@ -122,6 +148,8 @@ await clickSquare(mate1.sol[0].slice(2, 4));
 await page.waitForTimeout(900);
 const feedback = await page.locator('.feedback').first().textContent();
 check('puzzle solved by playing the solution', /solved/i.test(feedback || ''), (feedback || '').trim().slice(0, 60));
+const puzzleEngine = await page.locator('.board-tools button:has-text("Engine: off")').count();
+check('puzzles keep the engine hidden (no spoilers)', puzzleEngine === 0, `${puzzleEngine} engine switches`);
 await page.screenshot({ path: OUT + '/desktop-puzzle.png' });
 
 // ---- 6. settings: change the spread and board theme, then reload to prove persistence

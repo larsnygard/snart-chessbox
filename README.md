@@ -25,6 +25,12 @@ the whole app (engine included) is cached by a service worker so it works on a p
   `min games` / `max depth`.
 - **Exclude bad moves**: the engine evaluates every branch point and drops moves that lose
   more than N centipawns against the best move.
+- **Browse mode**: every continuation of the current position is drawn as an arrow on the
+  board — click an arrow or a move in the score sheet to walk the line. Alternatives are
+  listed in parentheses beside each move.
+- **Edit mode**: every move has its own edit button (jump, comment, replace, delete, "new
+  variation from here"). Playing a different move on the board adds it *beside* the existing
+  move, so it becomes a new variation instead of overwriting the line.
 - Train the tree: the opponent picks weighted book replies, you must stay in your repertoire
   (with an "add this move" escape hatch when you deviate).
 
@@ -57,6 +63,17 @@ the whole app (engine included) is cached by a service worker so it works on a p
 - Built-in sets (Basic mates, Pawn endings, Mate in one, Tactics mix, opening starters,
   Opera Game memory) plus your own.
 - Sessions run item by item with progress, skip/end, and a summary.
+
+**Board tools (every board, every screen)**
+- **Eval bar** with a live engine switch (off by default; the engine is hidden in puzzles and
+  memory quizzes so it cannot hand you the answer).
+- **Play engine from this position** — always present, on any board, including repertoire
+  browsing, game review, drills and puzzles.
+- **Move-list arrows** `|◀ ◀ ▶ ▶|` step back and forward through the line; reviewing an
+  earlier ply is non-destructive and one click returns to the live position.
+- **Variation arrows** on the board wherever a tree exists: the current move in green, the
+  alternatives in blue, all clickable.
+- Flip board, and the same strip on phone and desktop.
 
 **Everything else**
 - Engine think time (50 ms – 3 s per move) and playing strength (Skill/Elo, 400–max).

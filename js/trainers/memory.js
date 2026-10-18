@@ -26,6 +26,8 @@ export function mountMemory(host, ctx, opts) {
     pieceSet: settings.pieceSet,
     coords: settings.coords,
     animate: settings.animate,
+    settings,
+    allowEngine: (opts.mode || 'study') !== 'quiz',
     startTurn,
     onMove: (m) => onUserMove(m),
   });
