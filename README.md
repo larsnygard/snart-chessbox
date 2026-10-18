@@ -103,6 +103,13 @@ the whole app (engine included) is cached by a service worker so it works on a p
   Opera Game memory) plus your own.
 - Sessions run item by item with progress, skip/end, and a summary.
 
+**Board annotations (any board, any screen)**
+- **Right-click a square** to circle it: green → red → yellow → off on repeated clicks.
+  **Shift / Alt / Ctrl + right-click** sets red / yellow / green directly.
+- **Right-click and drag** draws an arrow; drawing the same arrow again removes it. Modifiers
+  pick the arrow colour the same way.
+- Annotations belong to the position: they clear when a move is played, and **Esc** clears them.
+
 **Board behaviour**
 - The side you play is at the bottom by default; *Settings → White always at the bottom* flips
   that rule for good.

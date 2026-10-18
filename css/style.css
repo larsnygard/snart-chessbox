@@ -229,6 +229,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 }
 .sq.hl-target.capture::after { width: 92%; height: 92%; border-radius: 50%; background: none;
   box-shadow: inset 0 0 0 6px rgba(20, 26, 20, 0.26); }
+/* right-click annotations (a ring, so it coexists with last-move/check/target) */
+.sq.mark-green::before, .sq.mark-red::before, .sq.mark-yellow::before {
+  content: ""; position: absolute; inset: 7%; border-radius: 50%; border: 3px solid; pointer-events: none;
+}
+.sq.mark-green::before { border-color: rgba(47, 174, 128, 0.95); background: rgba(47, 174, 128, 0.18); }
+.sq.mark-red::before { border-color: rgba(224, 72, 72, 0.95); background: rgba(224, 72, 72, 0.18); }
+.sq.mark-yellow::before { border-color: rgba(230, 185, 60, 0.95); background: rgba(230, 185, 60, 0.18); }
 .sq.hl-from { box-shadow: inset 0 0 0 999px rgba(55, 185, 138, 0.3); }
 
 .pieces { position: absolute; inset: 0; pointer-events: none; }

@@ -26,6 +26,9 @@ export function createBoard(host, opts = {}) {
     animate: opts.animate !== false,
     arrows: [],
     engineArrows: [],
+    marks: new Map(),        // square -> 'green' | 'red' | 'yellow'  (right-click)
+    markArrows: new Map(),   // 'e2e4' -> colour                    (right-click drag)
+    preview: null,           // arrow being drawn right now
     last: null,
     check: null,
     selected: null,
@@ -54,6 +57,12 @@ export function createBoard(host, opts = {}) {
         <path d="M0 0 L10 5 L0 10 z" fill="#37b98a"/></marker>
       <marker id="ah-bad" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">
         <path d="M0 0 L10 5 L0 10 z" fill="#e05656"/></marker>
+      <marker id="ah-red" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#e04848"/></marker>
+      <marker id="ah-yellow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#e6b93c"/></marker>
+      <marker id="ah-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#2fae80"/></marker>
     </defs>`;
   board.append(squares, pieces, svg);
   root.append(board);
@@ -155,7 +164,15 @@ export function createBoard(host, opts = {}) {
   function renderArrows() {
     // Two layers: `arrows` belongs to the screen (book moves, hints, blunders),
     // `engineArrows` is owned by the engine panel and must not clobber them.
-    const all = state.arrows.concat(state.engineArrows).filter((a) => a && a.from && a.to && a.from !== a.to);
+    const MARK_COLOUR = { red: '#e04848', yellow: '#e6b93c', green: '#2fae80', blue: '#3d8bfd' };
+    const userArrows = [...state.markArrows.entries()].map(([key, colour]) => ({
+      from: key.slice(0, 2), to: key.slice(2, 4), color: colour, mark: true,
+    }));
+    if (state.preview && state.preview.from !== state.preview.to) {
+      userArrows.push({ ...state.preview, color: state.preview.color || 'green', mark: true, preview: true });
+    }
+    const all = state.arrows.concat(state.engineArrows, userArrows)
+      .filter((a) => a && a.from && a.to && a.from !== a.to);
     const defs = svg.querySelector('defs');
     svg.innerHTML = '';
     svg.append(defs);
@@ -167,10 +184,17 @@ export function createBoard(host, opts = {}) {
       const ux = dx / len, uy = dy / len;
       const sx = x1 + ux * 0.22, sy = y1 + uy * 0.22;
       const ex = x2 - ux * 0.26, ey = y2 - uy * 0.26;
-      const color = a.color === 'bad' ? '#e05656' : a.color === 'best' ? '#37b98a' : '#3d8bfd';
-      const marker = a.color === 'bad' ? 'ah-bad' : a.color === 'best' ? 'ah-best' : 'ah-hint';
-      const alpha = a.weak ? 0.55 : 0.92;
-      const wide = a.weak ? 0.085 : 0.13;
+      const color = a.color === 'bad' ? '#e05656'
+        : a.color === 'best' ? '#37b98a'
+        : MARK_COLOUR[a.color] || '#3d8bfd';
+      const marker = a.color === 'bad' ? 'ah-bad'
+        : a.color === 'best' ? 'ah-best'
+        : a.color === 'red' ? 'ah-red'
+        : a.color === 'yellow' ? 'ah-yellow'
+        : a.color === 'green' ? 'ah-green'
+        : 'ah-hint';
+      const alpha = a.preview ? 0.6 : (a.weak ? 0.55 : 0.92);
+      const wide = a.preview ? 0.1 : (a.weak ? 0.085 : 0.13);
       // invisible fat line first: an arrow is a 0.13-unit stroke, far too thin to tap
       svg.insertAdjacentHTML('beforeend', `<line class="arrow-hit" data-i="${i}" x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="transparent" stroke-width="0.6"/>`);
       svg.insertAdjacentHTML('beforeend', `<line class="arrow-line" x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width="${wide}" marker-end="url(#${marker})" opacity="${alpha}"/>`);
@@ -198,6 +222,10 @@ export function createBoard(host, opts = {}) {
       const t = state.targets.find((x) => x.to === sq);
       el.classList.toggle('hl-target', !!t);
       el.classList.toggle('capture', !!t && !!t.capture);
+      const mark = state.marks.get(sq);
+      el.classList.toggle('mark-green', mark === 'green');
+      el.classList.toggle('mark-red', mark === 'red');
+      el.classList.toggle('mark-yellow', mark === 'yellow');
     }
   }
 
@@ -321,10 +349,107 @@ export function createBoard(host, opts = {}) {
   // stop the page from scrolling/zooming while dragging on the board
   board.addEventListener('touchmove', (e) => { if (drag) e.preventDefault(); }, { passive: false });
 
+  // ---- right-click annotations: circles on squares, arrows by dragging ----
+  const MARK_ORDER = ['green', 'red', 'yellow'];
+  let markDrag = null;
+
+  function markColourFor(e, current) {
+    if (e.shiftKey) return 'red';
+    if (e.altKey) return 'yellow';
+    if (e.ctrlKey || e.metaKey) return 'green';
+    const i = current ? MARK_ORDER.indexOf(current) : -1;
+    return i + 1 < MARK_ORDER.length ? MARK_ORDER[i + 1] : null; // cycles green → red → yellow → off
+  }
+
+  function setSquareMark(sq, e) {
+    const next = markColourFor(e, state.marks.get(sq) || null);
+    if (next) state.marks.set(sq, next); else state.marks.delete(sq);
+    paintHighlights();
+    renderArrows();
+  }
+
+  /**
+   * Arrows behave like a toggle, not a cycle: a plain re-draw of the same arrow
+   * removes it. A modifier picks the colour, and re-drawing an arrow that is
+   * already that colour removes it too.
+   */
+  function arrowColourFor(e, existing) {
+    if (e.shiftKey) return existing === 'red' ? null : 'red';
+    if (e.altKey) return existing === 'yellow' ? null : 'yellow';
+    if (e.ctrlKey || e.metaKey) return existing === 'green' ? null : 'green';
+    return existing ? null : 'green';
+  }
+
+  function toggleMarkArrow(from, to, e) {
+    const key = from + to;
+    const next = arrowColourFor(e, state.markArrows.get(key) || null);
+    if (!next) state.markArrows.delete(key);
+    else state.markArrows.set(key, next);
+    renderArrows();
+  }
+
+  function clearMarks() {
+    if (!state.marks.size && !state.markArrows.size && !state.preview) return;
+    state.marks.clear();
+    state.markArrows.clear();
+    state.preview = null;
+    paintHighlights();
+    renderArrows();
+  }
+
+  // the board owns right-click: never show the browser menu over it
+  board.addEventListener('contextmenu', (ev) => ev.preventDefault());
+
+  board.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 2 || !state.interactive) return;
+    const sq = squareAtPoint(ev.clientX, ev.clientY);
+    if (!sq) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    markDrag = { from: sq, startX: ev.clientX, startY: ev.clientY, moved: false, pointerId: ev.pointerId };
+    if (board.setPointerCapture) { try { board.setPointerCapture(ev.pointerId); } catch (e) { /* ignore */ } }
+  }, true);
+
+  board.addEventListener('pointermove', (ev) => {
+    if (!markDrag) return;
+    const to = squareAtPoint(ev.clientX, ev.clientY);
+    if (!markDrag.moved && Math.hypot(ev.clientX - markDrag.startX, ev.clientY - markDrag.startY) > 6) markDrag.moved = true;
+    if (markDrag.moved) {
+      if (to && to !== markDrag.from) {
+        const colour = ev.shiftKey ? 'red' : ev.altKey ? 'yellow' : 'green';
+        state.preview = { from: markDrag.from, to, color: colour };
+      } else state.preview = null;
+      renderArrows();
+    }
+    ev.preventDefault();
+  });
+
+  board.addEventListener('pointerup', (ev) => {
+    if (!markDrag) return;
+    const d = markDrag;
+    markDrag = null;
+    state.preview = null;
+    const to = squareAtPoint(ev.clientX, ev.clientY);
+    const mods = { shiftKey: ev.shiftKey, altKey: ev.altKey, ctrlKey: ev.ctrlKey, metaKey: ev.metaKey };
+    if (d.moved && to && to !== d.from) toggleMarkArrow(d.from, to, mods);
+    else setSquareMark(d.from, mods);
+    ev.preventDefault();
+  });
+
+  board.addEventListener('pointercancel', () => {
+    markDrag = null;
+    state.preview = null;
+    renderArrows();
+  });
+
   // keyboard: arrows move focus, enter selects (accessibility nicety)
   board.addEventListener('keydown', (e) => {
     if (!state.interactive) return;
-    if (e.key === 'Escape') { clearSelection(); return; }
+    if (e.key === 'Escape') {
+      if (state.marks.size || state.markArrows.size) clearMarks();
+      else clearSelection();
+      return;
+    }
   });
 
   buildSquares();
@@ -342,6 +467,11 @@ export function createBoard(host, opts = {}) {
     get selected() { return state.selected; },
     setPosition(fen, o = {}) {
       const prevFen = state.fen;
+      if (fen !== prevFen) {
+        state.marks.clear();
+        state.markArrows.clear();
+        state.preview = null;
+      }
       state.fen = fen;
       state.last = o.last !== undefined ? o.last : state.last;
       state.check = o.check !== undefined ? o.check : findCheckSquare(fen);
@@ -361,6 +491,8 @@ export function createBoard(host, opts = {}) {
     },
     setArrows(arrows) { state.arrows = arrows || []; renderArrows(); },
     setEngineArrows(arrows) { state.engineArrows = arrows || []; renderArrows(); },
+    clearMarks,
+    getMarks() { return { squares: [...state.marks.entries()], arrows: [...state.markArrows.entries()] }; },
     getArrows() { return state.arrows.slice(); },
     setOrientation(o) {
       const next = o === 'b' ? 'b' : 'w';

@@ -120,6 +120,62 @@ await page.waitForTimeout(1600);
 const autoBoard = await page.locator('.board-col strong').first().textContent().catch(() => '');
 check('instant mode moves to the next board by itself', !/Board 1/.test(autoBoard || ''), autoBoard);
 
+// ---------------------------------------------------------------- right-click annotations
+await goto('/#/endgames/kqk-1');
+await page.waitForTimeout(900);
+const markBox = await page.locator('.board .board-squares').first().boundingBox();
+const sqPoint = (name) => {
+  const f = 'abcdefgh'.indexOf(name[0]);
+  const r = parseInt(name[1], 10);
+  return { x: markBox.x + (f + 0.5) * (markBox.width / 8), y: markBox.y + (8 - r + 0.5) * (markBox.height / 8) };
+};
+const sqClass = (name) => page.locator(`.sq[data-sq="${name}"]`).getAttribute('class');
+const rightClick = async (name, modifiers = []) => {
+  const pt = sqPoint(name);
+  for (const m of modifiers) await page.keyboard.down(m);
+  await page.mouse.click(pt.x, pt.y, { button: 'right' });
+  for (const m of modifiers) await page.keyboard.up(m);
+  await page.waitForTimeout(150);
+};
+
+await rightClick('d5');
+const mark1 = await sqClass('d5');
+await rightClick('d5');
+const mark2 = await sqClass('d5');
+await rightClick('d5');
+const mark3 = await sqClass('d5');
+await rightClick('d5');
+const mark4 = await sqClass('d5');
+check('right-click cycles green → red → yellow → off',
+  /mark-green/.test(mark1) && /mark-red/.test(mark2) && /mark-yellow/.test(mark3) && !/mark-/.test(mark4),
+  `${(mark1.match(/mark-\w+/) || [''])[0]} → ${(mark2.match(/mark-\w+/) || [''])[0]} → ${(mark3.match(/mark-\w+/) || [''])[0]} → ${(mark4.match(/mark-\w+/) || ['none'])[0]}`);
+
+await rightClick('c4', ['Shift']);
+check('shift+right-click sets red directly', /mark-red/.test(await sqClass('c4')), await sqClass('c4'));
+await rightClick('c4', ['Alt']);
+check('alt+right-click sets yellow directly', /mark-yellow/.test(await sqClass('c4')), await sqClass('c4'));
+
+// arrows: right-drag, then the same drag again removes it
+const arrowCount = () => page.locator('.arrows .arrow-line').count();
+const beforeArrows = await arrowCount();
+const from = sqPoint('d2');
+const to = sqPoint('d4');
+const drag = async () => {
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move((from.x + to.x) / 2, (from.y + to.y) / 2, { steps: 4 });
+  await page.mouse.move(to.x, to.y, { steps: 4 });
+  await page.mouse.up({ button: 'right' });
+  await page.waitForTimeout(250);
+};
+await drag();
+const afterDraw = await arrowCount();
+await drag();
+const afterRemove = await arrowCount();
+check('right-drag draws an arrow and repeating it removes it',
+  afterDraw === beforeArrows + 1 && afterRemove === beforeArrows,
+  `${beforeArrows} → ${afterDraw} → ${afterRemove}`);
+
 // ---------------------------------------------------------------- no scroll while playing
 await page.setViewportSize({ width: 390, height: 700 });
 await goto('/#/endgames/kqk-1');
