@@ -1,0 +1,18 @@
+# never publish VCS data or local tooling
+.git/
+.github/
+node_modules/
+.playwright/
+__pycache__/
+
+# development-only files (the app itself is static)
+tests/
+tools/
+.vscode/
+.idea/
+*.log
+*.tmp
+
+# deploy machinery
+.rsync-exclude
+sendchessbox.sh

@@ -60,6 +60,7 @@ const NAV = [
   { id: 'openings', label: 'Openings', icon: 'book' },
   { id: 'endgames', label: 'Endgames', icon: 'crown' },
   { id: 'puzzles', label: 'Puzzles', icon: 'puzzle' },
+  { id: 'simultan', label: 'Simultan', icon: 'simultan' },
   { id: 'memory', label: 'Memory', icon: 'brain' },
   { id: 'coach', label: 'My games', icon: 'game' },
   { id: 'repertoire', label: 'Repertoire', icon: 'star' },
@@ -75,6 +76,7 @@ async function loadViews() {
     openings: './views/openings.js',
     endgames: './views/endgames.js',
     puzzles: './views/puzzles.js',
+    simultan: './views/simultan.js',
     memory: './views/memory.js',
     coach: './views/coach.js',
     repertoire: './views/repertoire.js',
@@ -130,10 +132,10 @@ async function renderRoute() {
 function titleFor(name, route) {
   const map = {
     home: 'Train', openings: 'Openings', endgames: 'Endgames', puzzles: 'Puzzles',
-    memory: 'Game memory', coach: 'My games', repertoire: 'Repertoire', sets: 'Exercise sets',
+    simultan: 'Simultan', memory: 'Game memory', coach: 'My games', repertoire: 'Repertoire', sets: 'Exercise sets',
     settings: 'Settings', session: 'Session',
   };
-  return map[name] || 'Snart Chess Trainer';
+  return map[name] || 'SnartChessBox';
 }
 
 function markNav(name) {
@@ -164,6 +166,7 @@ function buildChrome() {
   bottom.append(el('button', {
     dataset: { nav: 'more' }, html: `${icon('dots')}<span>More</span>`,
     onclick: () => import('./ui/components.js').then(({ sheet }) => sheet('More', [
+      { icon: 'simultan', label: 'Simultan', onClick: () => navigate('/simultan') },
       { icon: 'brain', label: 'Game memory', onClick: () => navigate('/memory') },
       { icon: 'game', label: 'My games (coaching)', onClick: () => navigate('/coach') },
       { icon: 'star', label: 'Repertoire', onClick: () => navigate('/repertoire') },

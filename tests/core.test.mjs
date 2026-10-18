@@ -298,7 +298,7 @@ test('bundle round-trip and merge strategies', () => {
   assert.equal(progress.a.seen, 9);
   assert.equal(progress.a.due, 10);
 
-  assert.throws(() => parseBundle('{"nope":1}'), /Not a Snart Chess Trainer backup/);
+  assert.throws(() => parseBundle('{"nope":1}'), /Not a SnartChessBox backup/);
 });
 
 // ------------------------------------------------------------------ endgames

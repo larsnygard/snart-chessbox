@@ -1,8 +1,9 @@
-# Snart Chess Trainer
+# SnartChessBox
 
 An offline-first chess **training** app: opening repertoires for both colours, endgame
-technique drills, themed tactics, and famous-game memorisation — all against a local
-Stockfish, all in the browser, installable as an app on phone and desktop.
+technique drills, themed tactics, simultaneous exhibitions against the engine, and
+famous-game memorisation — all against a local Stockfish, all in the browser,
+installable as an app on phone and desktop.
 
 No accounts, no server, no telemetry. Everything lives in your browser's storage, and
 the whole app (engine included) is cached by a service worker so it works on a plane.
@@ -46,6 +47,14 @@ the whole app (engine included) is cached by a service worker so it works on a p
 - Filter by theme (mate in 1/2/3/4, back rank, smothered mate, fork, pin, skewer,
   discovered attack, sacrifice, promotion, endgame, defence, …) and by rating band.
 
+**Simultan (simultaneous exhibition)**
+- Play 2–6 boards at once, one at a time, like walking the hall in a simul.
+- Only the focused board is on screen; every other board whose move it is keeps
+  *thinking debt* — it accumulates while you are away and is paid back as extra engine
+  thinking time when that board answers, so looking away never weakens the opponent.
+- Colour per board (White / Black / alternate), base thinking time, debt cap, board order.
+- Score card (wins 1, draws ½), per-board status, resign, new exhibition.
+
 **Game memory**
 - 36 famous games (with sources) plus any game you add.
 - Study mode steps through the game; quiz mode replays it and asks you to reproduce your
@@ -63,6 +72,11 @@ the whole app (engine included) is cached by a service worker so it works on a p
 - Built-in sets (Basic mates, Pawn endings, Mate in one, Tactics mix, opening starters,
   Opera Game memory) plus your own.
 - Sessions run item by item with progress, skip/end, and a summary.
+
+**Mobile**
+- Pieces are filled SVG silhouettes (white = white fill with a dark rim) at 94 % of the
+  square, so they stay legible at phone sizes; board size is capped by viewport height and
+  the layout switches to two columns in landscape.
 
 **Board tools (every board, every screen)**
 - **Eval bar** with a live engine switch (off by default; the engine is hidden in puzzles and
@@ -136,7 +150,8 @@ js/core/              pure logic, no DOM — unit-tested in Node
   backup.js             single-file bundle + PGN export, merge strategies
 js/ui/                board renderer, pieces, engine worker client, sound, store, helpers
 js/trainers/          one trainer per activity (opening, endgame, puzzle, memory, freeplay)
-js/views/             one screen per route
+js/views/             one screen per route (home, openings, endgames, puzzles,
+                      simultan, memory, coach, repertoire, sets, session, settings)
 vendor/chess.mjs      chess.js (ESM)
 engines/              Stockfish 19 lite, single-threaded WASM build
 data/                  generated datasets (openings, puzzles, famous games)
@@ -144,7 +159,7 @@ tools/                dataset builders + endgame verifier + browser checks
 tests/                node:test suites (core logic, datasets, PWA integrity)
 ```
 
-**Storage:** one IndexedDB key/value store (`snart-chess-trainer`), keys `settings`,
+**Storage:** one IndexedDB key/value store (`snart-chessbox`), keys `settings`,
 `repertoires`, `sets`, `games`, `memoryGames`, `progress`, `analyses`, `customPuzzles`.
 Settings are mirrored to `localStorage` for fast boot.
 

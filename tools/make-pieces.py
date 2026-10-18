@@ -29,6 +29,90 @@ GLYPHS = {
 SIZE = 100  # glyph coordinate box before normalisation
 
 
+
+NUM = re.compile(r"-?\d*\.?\d+(?:e-?\d+)?")
+
+
+def path_bbox(d: str):
+    """Ink bounding box of an SVG path (control points included).
+
+    Inkscape's --query-all reports the text object's em box, which is identical
+    for every glyph; normalising with it leaves outlined pieces off-centre and
+    undersized. Parsing the path is a few lines and gives the real ink extent.
+    """
+    tokens = re.findall(r"[MmLlHhVvCcSsQqTtAaZz]|-?\d*\.?\d+(?:e-?\d+)?", d)
+    xs, ys = [], []
+    cx = cy = 0.0
+    start_x = start_y = 0.0
+    i = 0
+    cmd = None
+
+    def num():
+        nonlocal i
+        v = float(tokens[i]); i += 1
+        return v
+
+    while i < len(tokens):
+        t = tokens[i]
+        if re.match(r"[A-Za-z]", t):
+            cmd = t
+            i += 1
+            if cmd in "Zz":
+                cx, cy = start_x, start_y
+                continue
+        if cmd is None:
+            break
+        rel = cmd.islower()
+        c = cmd.upper()
+        if c == "M":
+            x, y = num(), num()
+            if rel: x, y = cx + x, cy + y
+            cx, cy = x, y
+            start_x, start_y = x, y
+            xs.append(x); ys.append(y)
+            cmd = "l" if rel else "L"
+        elif c == "L":
+            x, y = num(), num()
+            if rel: x, y = cx + x, cy + y
+            cx, cy = x, y
+            xs.append(x); ys.append(y)
+        elif c == "H":
+            x = num()
+            cx = cx + x if rel else x
+            xs.append(cx)
+        elif c == "V":
+            y = num()
+            cy = cy + y if rel else y
+            ys.append(cy)
+        elif c in ("C", "S"):
+            pts = [(num(), num()) for _ in range(3 if c == "C" else 2)]
+            if rel: pts = [(cx + a, cy + b) for a, b in pts]
+            for a, b in pts:
+                xs.append(a); ys.append(b)
+            cx, cy = pts[-1]
+        elif c in ("Q", "T"):
+            pts = [(num(), num()) for _ in range(2 if c == "Q" else 1)]
+            if rel: pts = [(cx + a, cy + b) for a, b in pts]
+            for a, b in pts:
+                xs.append(a); ys.append(b)
+            cx, cy = pts[-1]
+        elif c == "A":
+            rx, ry = num(), num()
+            num(); num(); num()
+            x, y = num(), num()
+            if rel: x, y = cx + x, cy + y
+            xs.extend([x - abs(rx), x + abs(rx)])
+            ys.extend([y - abs(ry), y + abs(ry)])
+            cx, cy = x, y
+        else:
+            i += 1
+    if not xs or not ys:
+        return [0, 0, 1, 1]
+    x0, x1 = min(xs), max(xs)
+    y0, y1 = min(ys), max(ys)
+    return [round(x0, 3), round(y0, 3), round(x1 - x0, 3), round(y1 - y0, 3)]
+
+
 def to_path(glyph: str) -> tuple[str, list[float]]:
     """Return (svg path data, [x, y, w, h]) for one character."""
     with tempfile.TemporaryDirectory() as td:
@@ -48,17 +132,7 @@ def to_path(glyph: str) -> tuple[str, list[float]]:
             d = m.group(1) if d is None else d + " " + m.group(1)
         if not d:
             raise RuntimeError(f"no path produced for {glyph!r}")
-        q = subprocess.run(["inkscape", str(dst), "--query-all"], check=True, capture_output=True, text=True)
-        box = None
-        for line in q.stdout.strip().splitlines():
-            parts = line.split(",")
-            if len(parts) == 5 and parts[0] == "g":
-                box = [float(x) for x in parts[1:]]
-                break
-        if box is None:  # fall back to the first object
-            line = q.stdout.strip().splitlines()[0].split(",")
-            box = [float(x) for x in line[1:]]
-        return d, [round(v, 3) for v in box]
+        return d, path_bbox(d)
 
 
 def main() -> int:

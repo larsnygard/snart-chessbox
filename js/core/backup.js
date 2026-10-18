@@ -6,7 +6,9 @@
 //    imported games + memory games + progress. "Everything" means the user can
 //    move to another browser/phone and continue where they left off.
 
-export const BUNDLE_FORMAT = 'snart-chess-trainer-bundle';
+export const BUNDLE_FORMAT = 'snart-chessbox-bundle';
+// backups written before the rename must still import
+const LEGACY_FORMATS = ['snart-chess-trainer-bundle'];
 export const BUNDLE_VERSION = 1;
 
 export function makeBundle(state, now = Date.now()) {
@@ -14,7 +16,7 @@ export function makeBundle(state, now = Date.now()) {
     format: BUNDLE_FORMAT,
     version: BUNDLE_VERSION,
     exportedAt: new Date(now).toISOString(),
-    app: 'Snart Chess Trainer',
+    app: 'SnartChessBox',
     settings: state.settings || {},
     repertoires: state.repertoires || [],
     sets: state.sets || [],
@@ -30,7 +32,9 @@ export function serializeBundle(bundle) { return JSON.stringify(bundle, null, 1)
 export function parseBundle(text) {
   let data;
   try { data = JSON.parse(text); } catch (e) { throw new Error('Not a JSON file'); }
-  if (!data || data.format !== BUNDLE_FORMAT) throw new Error('Not a Snart Chess Trainer backup');
+  if (!data || (data.format !== BUNDLE_FORMAT && !LEGACY_FORMATS.includes(data.format))) {
+    throw new Error('Not a SnartChessBox backup');
+  }
   if (data.version > BUNDLE_VERSION) throw new Error(`Backup is from a newer version (v${data.version})`);
   return {
     settings: data.settings || null,
@@ -81,7 +85,7 @@ export function mergeProgress(local, incoming) {
 }
 
 /** Filesystem-safe filename stem for exports. */
-export function exportName(prefix = 'snart-chess-trainer', now = new Date()) {
+export function exportName(prefix = 'snart-chessbox', now = new Date()) {
   const p = (n) => String(n).padStart(2, '0');
   return `${prefix}-${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}`;
 }

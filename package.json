@@ -1,11 +1,11 @@
 {
-  "name": "snart-chess-trainer",
-  "version": "1.0.0",
+  "name": "snart-chessbox",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Offline chess trainer: opening repertoires, endgame technique, tactics puzzles and game memory against Stockfish (PWA).",
   "license": "AGPL-3.0-or-later",
-  "homepage": "https://github.com/larsnygard/snart-chess-trainer",
+  "homepage": "https://github.com/larsnygard/snart-chessbox",
   "scripts": {
     "start": "python3 -m http.server 8741",
     "test": "node --test tests/",

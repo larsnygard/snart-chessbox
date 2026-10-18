@@ -2,10 +2,11 @@
 // localStorage mirror for the settings blob (fast boot) and as a fallback when
 // IndexedDB is unavailable (private mode, very old browsers).
 
-const DB_NAME = 'snart-chess-trainer';
+const DB_NAME = 'snart-chessbox';
+const LEGACY_DB = 'snart-chess-trainer'; // previous name of this app
 const DB_VERSION = 1;
 const STORE = 'kv';
-const LS_SETTINGS = 'sct.settings.v1';
+const LS_SETTINGS = 'scb.settings.v1';
 
 export const DEFAULT_SETTINGS = {
   // engine
@@ -61,7 +62,63 @@ export class Store {
       req.onblocked = () => resolve(null);
     });
     if (!this.db) this.memoryOnly = true;
+    else await this.migrateLegacy();
     return this.db;
+  }
+
+  /** Copy data from the pre-rename database once, so a rename loses nothing. */
+  async migrateLegacy() {
+    try {
+      const existing = await new Promise((resolve) => {
+        const q = this.db.transaction(STORE, 'readonly').objectStore(STORE).get('settings');
+        q.onsuccess = () => resolve(q.result);
+        q.onerror = () => resolve(undefined);
+      });
+      if (existing) return; // already migrated or fresh install with data
+      // only open the legacy database when it is actually there (open() creates)
+      if (indexedDB.databases) {
+        const list = await indexedDB.databases().catch(() => []);
+        if (!list.some((d) => d.name === LEGACY_DB)) return;
+      }
+      const old = await new Promise((resolve) => {
+        const req = indexedDB.open(LEGACY_DB);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+        req.onblocked = () => resolve(null);
+        // do not create the legacy database if it is not there
+        setTimeout(() => resolve(null), 1500);
+      });
+      if (!old || !old.objectStoreNames.contains(STORE)) return;
+      const keys = Array.from(old.objectStoreNames);
+      void keys;
+      const records = await new Promise((resolve) => {
+        const out = {};
+        const tx = old.transaction(STORE, 'readonly');
+        const store = tx.objectStore(STORE);
+        const all = store.getAllKeys();
+        all.onsuccess = () => {
+          const ks = all.result || [];
+          let left = ks.length;
+          if (!left) return resolve(out);
+          for (const k of ks) {
+            const g = store.get(k);
+            g.onsuccess = () => { out[k] = g.result; if (--left === 0) resolve(out); };
+            g.onerror = () => { if (--left === 0) resolve(out); };
+          }
+        };
+        all.onerror = () => resolve(out);
+      });
+      if (!Object.keys(records).length) return;
+      const tx = this.db.transaction(STORE, 'readwrite');
+      const st = tx.objectStore(STORE);
+      for (const [k, v] of Object.entries(records)) if (v !== undefined) st.put(v, k);
+      await new Promise((r2) => { tx.oncomplete = r2; tx.onerror = r2; tx.onabort = r2; });
+      old.close();
+      this.cache.clear();
+      console.info('SnartChessBox: migrated data from the previous database');
+    } catch (e) {
+      /* migration is best-effort; never block boot on it */
+    }
   }
 
   async get(key, fallback = null) {
@@ -149,6 +206,9 @@ export class Store {
       if (typeof DEFAULT_SETTINGS[k] === 'boolean' && typeof out[k] !== 'boolean') out[k] = DEFAULT_SETTINGS[k];
       if (typeof DEFAULT_SETTINGS[k] === 'number' && !Number.isFinite(out[k])) out[k] = DEFAULT_SETTINGS[k];
     }
+    // a saved value that no longer exists (renamed design/theme) must not stick
+    if (!['classic', 'outline', 'minimal'].includes(out.pieceSet)) out.pieceSet = DEFAULT_SETTINGS.pieceSet;
+    if (!['forest', 'walnut', 'ocean', 'slate', 'midnight', 'paper'].includes(out.boardTheme)) out.boardTheme = DEFAULT_SETTINGS.boardTheme;
     out._v = SETTINGS_VERSION;
     return out;
   }

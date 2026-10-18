@@ -27,6 +27,25 @@ await shot(desktop, '/#/home', 'desktop-home.png', 1500);
 await shot(desktop, '/#/endgames/krk-1', 'desktop-endgame.png', 2000);
 await shot(desktop, '/#/puzzles?single=' + mate2.id, 'desktop-puzzle.png', 1500);
 await shot(desktop, '/#/memory', 'desktop-memory.png', 1200);
+
+// simultan needs a started session: start 4 boards and play one move
+await desktop.goto('about:blank');
+await desktop.goto(BASE + '#/simultan', { waitUntil: 'domcontentloaded' });
+await desktop.waitForFunction(() => !document.getElementById('boot'), null, { timeout: 25000 }).catch(() => {});
+await desktop.waitForTimeout(700);
+await desktop.locator('.chip:has-text("4 boards")').first().click();
+await desktop.locator('button:has-text("Start simultan")').first().click();
+await desktop.waitForTimeout(1500);
+const bb = await desktop.locator('.board .board-squares').first().boundingBox();
+const click = async (sq) => {
+  const f = 'abcdefgh'.indexOf(sq[0]); const rk = parseInt(sq[1], 10);
+  await desktop.mouse.click(bb.x + (f + 0.5) * (bb.width / 8), bb.y + (8 - rk + 0.5) * (bb.height / 8));
+  await desktop.waitForTimeout(150);
+};
+await click('e2'); await click('e4');
+await desktop.waitForTimeout(2600);
+await desktop.screenshot({ path: OUT + 'desktop-simultan.png' });
+console.log('wrote desktop-simultan.png');
 await desktop.close();
 
 // mobile (2x for crisp store/README rendering → 780x1688)

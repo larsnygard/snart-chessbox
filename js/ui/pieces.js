@@ -39,21 +39,27 @@ const GEO = {
 
 export const PIECE_SETS = [
   { id: 'classic', name: 'Classic', kind: 'svg' },
-  { id: 'solid', name: 'Solid', kind: 'svg' },
+  { id: 'outline', name: 'Outline', kind: 'svg' },
   { id: 'minimal', name: 'Minimal', kind: 'svg' },
 ];
 
 const BOX = 45;
-const PAD = 3.4;
+const PAD = 2.8;
 
-/** Which glyph variant supplies the shape for this design + colour. */
+/**
+ * Which glyph variant supplies the shape for this design + colour.
+ *
+ * 'classic' uses the SOLID silhouette for both colours and colours the fill:
+ * filled white pieces with a dark rim read at 30-40 px, while the hollow
+ * outline glyph (used by 'outline') turns into thin wireframe on a phone.
+ */
 function variantFor(setId, color) {
-  if (setId === 'solid') return 'b';          // solid shape in both colours
-  return color === 'w' ? 'w' : 'b';           // classic: outline white, solid black
+  if (setId === 'outline') return color === 'w' ? 'w' : 'b';
+  return 'b';
 }
 
 export function pieceMarkup(setId, type, color) {
-  const set = setId === 'minimal' ? 'minimal' : setId === 'solid' ? 'solid' : 'classic';
+  const set = setId === 'minimal' ? 'minimal' : setId === 'outline' ? 'outline' : 'classic';
   if (set === 'minimal') {
     return `<svg viewBox="0 0 45 45" aria-hidden="true" fill="currentColor" stroke="var(--piece-${color === 'w' ? 'white' : 'black'}-stroke)" stroke-width="1.1" stroke-linejoin="round">${GEO[type] || GEO.p}</svg>`;
   }
@@ -64,9 +70,9 @@ export function pieceMarkup(setId, type, color) {
   const tx = (BOX - bw * scale) / 2 - bx * scale;
   const ty = (BOX - bh * scale) / 2 - by * scale;
   // stroke width is in glyph units, so divide by the scale to keep it visually
-  // constant; the white pieces need a rim to read on light squares
-  const sw = (color === 'w' ? 1.5 : 1.0) / scale;
-  return `<svg viewBox="0 0 45 45" aria-hidden="true">
+  // constant; white pieces need a solid dark rim to stay readable on light squares
+  const sw = (color === 'w' ? 2.1 : 0.9) / scale;
+  return `<svg viewBox="0 0 45 45" aria-hidden="true" shape-rendering="geometricPrecision">
     <g transform="translate(${tx.toFixed(3)} ${ty.toFixed(3)}) scale(${scale.toFixed(4)})">
       <path d="${glyph.d}" fill="currentColor" fill-rule="evenodd"
         stroke="var(--piece-${color === 'w' ? 'white' : 'black'}-stroke)" stroke-width="${sw.toFixed(2)}" stroke-linejoin="round"/>

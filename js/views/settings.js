@@ -10,7 +10,7 @@ import { describeSpread } from '../core/evalband.js';
 import { buildPGN } from '../core/pgn.js';
 import { ENDGAME_DRILLS } from '../core/endgames.js';
 
-const VERSION = '1.0.0';
+const VERSION = '1.2.0';
 const THEMES = [
   { id: 'forest', name: 'Forest', light: '#eeeed2', dark: '#769656' },
   { id: 'walnut', name: 'Walnut', light: '#f0d9b5', dark: '#b58863' },
@@ -304,7 +304,7 @@ export function render(host) {
   host.append(el('div', { class: 'card' },
     el('h3', { text: 'About' }),
     el('div', { class: 'dim', style: 'font-size:.84rem' },
-      el('p', { html: `<b>Snart Chess Trainer</b> v${VERSION} · AGPL-3.0-or-later` }),
+      el('p', { html: `<b>SnartChessBox</b> v${VERSION} · AGPL-3.0-or-later` }),
       el('p', { html: 'A local-first training tool. The board, the opening tree, the puzzles and the engine all run in your browser; installing the app caches everything so it works with no network at all.' }),
       el('p', { html: 'Engine: <a href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noopener">Stockfish.js 19</a> (GPL-3.0). Rules: <a href="https://github.com/jhlywa/chess.js" target="_blank" rel="noopener">chess.js</a> (BSD-2-Clause). Openings: <a href="https://github.com/lichess-org/chess-openings" target="_blank" rel="noopener">Lichess opening database</a> (CC0). Puzzles: <a href="https://database.lichess.org/#puzzles" target="_blank" rel="noopener">Lichess puzzle database</a> (CC0).' }),
       el('p', { class: 'faint', html: 'Data stays on this device. Exports are the only way data leaves it.' }))));

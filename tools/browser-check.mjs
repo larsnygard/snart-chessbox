@@ -152,12 +152,44 @@ const puzzleEngine = await page.locator('.board-tools button:has-text("Engine: o
 check('puzzles keep the engine hidden (no spoilers)', puzzleEngine === 0, `${puzzleEngine} engine switches`);
 await page.screenshot({ path: OUT + '/desktop-puzzle.png' });
 
+// ---- 5b. simultan (parallel board exhibition)
+await goto('/#/simultan');
+await page.getByRole('button', { name: /Start simultan/ }).click();
+await page.waitForTimeout(1800);
+const boardsListed = await page.locator('.side-col .list .list-item').count();
+check('simultan starts the requested number of boards', boardsListed >= 3, `${boardsListed} boards`);
+await clickSquare('e2');
+await clickSquare('e4');
+await page.waitForTimeout(5000);
+const simulStatus = await page.locator('.board-status').first().textContent().catch(() => '');
+const simulList = await page.locator('.side-col .list').first().textContent().catch(() => '');
+check('simultan engine answers while you are on other boards', /your move/i.test(simulStatus || '') && /\d+ moves/.test(simulList || ''),
+  `${(simulStatus || '').trim().slice(0, 24)} | ${(simulList || '').replace(/\s+/g, ' ').slice(0, 44)}`);
+// switching boards: pick board 2 from the list (the focused board also
+// auto-advances after each move, so 'Next' is not deterministic here)
+await page.locator('.side-col .list .list-item').nth(1).click();
+await page.waitForTimeout(500);
+const boardLabel = await page.locator('.board-col strong').first().textContent().catch(() => '');
+const chipSel = await page.locator('.side-col .list .list-item.sel').count();
+check('simultan switches between boards', /Board 2/.test(boardLabel || '') && chipSel === 1, `${boardLabel}, ${chipSel} selected`);
+
+const navLabels = await page.locator('#sidenav .nav-item').allTextContents();
+const iP = navLabels.findIndex((t) => /Puzzle/i.test(t));
+const iS = navLabels.findIndex((t) => /Simultan/i.test(t));
+const iM = navLabels.findIndex((t) => /Memory/i.test(t));
+check('Simultan sits between Puzzles and Memory in the menu', iS === iP + 1 && iM === iS + 1, navLabels.join(' | '));
+
+// ---- 5c. branding
+const docTitle = await page.title();
+const brand = await page.locator('.brand-name').first().textContent().catch(() => '');
+check('app is named SnartChessBox', /SnartChessBox/.test(docTitle) && brand === 'SnartChessBox', `${docTitle} / ${brand}`);
+
 // ---- 6. settings: change the spread and board theme, then reload to prove persistence
 await goto('/#/settings');
 await page.locator('select').first().selectOption('softmax').catch(() => {});
 await page.waitForTimeout(500);
 const stored = await page.evaluate(async () => {
-  const db = await new Promise((res) => { const r = indexedDB.open('snart-chess-trainer', 1); r.onsuccess = () => res(r.result); r.onerror = () => res(null); });
+  const db = await new Promise((res) => { const r = indexedDB.open('snart-chessbox', 1); r.onsuccess = () => res(r.result); r.onerror = () => res(null); });
   if (!db) return null;
   return await new Promise((res) => {
     const q = db.transaction('kv', 'readonly').objectStore('kv').get('settings');

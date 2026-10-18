@@ -134,7 +134,7 @@ export function wrapMovetext(moves, startFen = START_FEN) {
 
 export function buildPGN({ headers = {}, moves = [], result, startFen = START_FEN }) {
   const h = {
-    Event: 'Snart Chess Trainer',
+    Event: 'SnartChessBox',
     Site: '?',
     Date: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
     Round: '?',

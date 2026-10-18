@@ -153,10 +153,10 @@ check('board theme switch changes the square colours', after.theme === 'walnut' 
 await page.locator('.piece-preview button').nth(1).click();
 await page.waitForTimeout(400);
 const setNow = await page.evaluate(async () => {
-  const db = await new Promise((res) => { const r = indexedDB.open('snart-chess-trainer', 1); r.onsuccess = () => res(r.result); });
+  const db = await new Promise((res) => { const r = indexedDB.open('snart-chessbox', 1); r.onsuccess = () => res(r.result); });
   return await new Promise((res) => { const q = db.transaction('kv', 'readonly').objectStore('kv').get('settings'); q.onsuccess = () => res(q.result.pieceSet); });
 });
-check('piece design switch persists', setNow === 'solid', String(setNow));
+check('piece design switch persists', setNow === 'outline', String(setNow));
 
 // ---------------------------------------------------------------- 6. bundle export
 const [download] = await Promise.all([

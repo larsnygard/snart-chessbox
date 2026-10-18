@@ -1,12 +1,12 @@
-// sw.js — app-shell cache for Snart Chess Trainer.
+// sw.js — app-shell cache for SnartChessBox.
 //
 // Offline is the point of this app: the engine, the opening tree, the puzzle
 // dataset and the UI all have to live in the cache, otherwise "train on a plane"
 // does not work. Bump VERSION on any asset change — `activate` is what purges
 // the stale build from installed devices.
 
-const VERSION = 'v1.1.0-2';
-const CACHE = `snart-chess-trainer-${VERSION}`;
+const VERSION = 'v1.2.0-1';
+const CACHE = `snart-chessbox-${VERSION}`;
 
 const ASSETS = [
   './',
@@ -51,6 +51,7 @@ const ASSETS = [
   './js/views/repertoire.js',
   './js/views/session.js',
   './js/views/sets.js',
+  './js/views/simultan.js',
   './js/views/settings.js',
 
   './vendor/chess.mjs',

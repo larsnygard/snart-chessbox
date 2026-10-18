@@ -1,8 +1,7 @@
 {
-  "name": "Snart Chess Trainer",
-  "short_name": "ChessTrainer",
-  "description": "Offline chess trainer: opening repertoires, endgame technique, themed tactics and famous-game memory training against Stockfish.",
-  "id": "/snart-chess-trainer/",
+  "name": "SnartChessBox",
+  "short_name": "ChessBox",
+  "description": "Offline chess trainer: opening repertoires, endgame technique, themed tactics, simultaneous exhibitions and famous-game memory training against Stockfish.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -48,6 +47,12 @@
   ],
   "shortcuts": [
     {
+      "name": "Simultan",
+      "short_name": "Simultan",
+      "url": "./index.html#/simultan",
+      "description": "Play several engine boards at once"
+    },
+    {
       "name": "Puzzles",
       "short_name": "Puzzles",
       "url": "./index.html#/puzzles",
@@ -80,6 +85,13 @@
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Endgame drills against Stockfish"
+    },
+    {
+      "src": "screenshots/desktop-simultan.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Simultaneous exhibition against the engine"
     },
     {
       "src": "screenshots/desktop-home.png",

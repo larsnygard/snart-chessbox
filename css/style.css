@@ -1,4 +1,4 @@
-/* Snart Chess Trainer — UI styles.
+/* SnartChessBox — UI styles.
    Dark-first, no framework, mobile + desktop. All colours flow through the
    custom properties below so board themes only swap the square colours. */
 
@@ -227,7 +227,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .piece {
   position: absolute; width: 12.5%; height: 12.5%; display: grid; place-items: center;
   transition: left .16s cubic-bezier(.2,.8,.3,1), top .16s cubic-bezier(.2,.8,.3,1);
-  will-change: left, top; pointer-events: none;
+  pointer-events: none;
 }
 .piece.dragging { transition: none; z-index: 40; filter: drop-shadow(0 8px 12px rgba(0,0,0,0.45)); }
 .piece svg { width: 88%; height: 88%; display: block; }
@@ -420,10 +420,29 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   .movelist { max-height: 160px; }
   .toasts { bottom: 76px; }
 }
+/* keep the board inside the viewport instead of scrolling the page */
+.trainer .board-col { max-width: min(100%, calc(100dvh - 265px)); }
 @media (min-width: 981px) {
   .board-sticky { position: sticky; top: 76px; }
-  /* keep the board inside the viewport instead of scrolling the page */
-  .trainer .board-col { max-width: min(100%, calc(100dvh - 265px)); }
+}
+
+/* phones: bigger pieces, tighter chrome, and a two-column layout in landscape */
+@media (max-width: 860px) {
+  .piece svg { width: 94%; height: 94%; }
+  .content { padding: 10px 10px 78px; }
+  .board { border-radius: 8px; }
+  .sq .coords { font-size: 7px; opacity: .55; }
+  .board-status { font-size: .8rem; }
+  .board-tools .btn { padding: 6px 10px; }
+  .navgroup .btn { padding: 6px 8px; min-width: 34px; min-height: 34px; }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .trainer { grid-template-columns: minmax(0, 1fr) minmax(240px, 34vw); }
+  .trainer .board-col { max-width: min(100%, calc(100dvh - 150px)); }
+  .content { padding: 8px; }
+  .topbar { padding: 6px 10px; }
+  .bottomnav { display: none; }
+  .content { padding-bottom: 8px; }
 }
 
 /* reduced motion */
