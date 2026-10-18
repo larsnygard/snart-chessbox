@@ -6,8 +6,10 @@
 
 import { applyUci } from '../core/chessutil.js';
 import { trainerShell } from '../ui/trainer-shell.js';
+import { state, persist, saveSettings } from '../app.js';
 import { orientationFor } from '../ui/orientation.js';
 import { arrowOf, uciFromMove } from './common.js';
+import { el, toast } from '../ui/components.js';
 
 export function mountMemory(host, ctx, opts) {
   const game = opts.game;
@@ -29,6 +31,13 @@ export function mountMemory(host, ctx, opts) {
     animate: settings.animate,
     settings,
     allowEngine: (opts.mode || 'study') !== 'quiz',
+    nav: {
+      first: () => goTo(0),
+      back: () => goTo(st.ply - 1),
+      forward: () => goTo(st.ply + 1),
+      last: () => goTo(toPly),
+      state: () => ({ atStart: st.ply <= 0, atEnd: st.ply >= toPly }),
+    },
     startTurn,
     onMove: (m) => onUserMove(m),
   });
@@ -46,6 +55,7 @@ export function mountMemory(host, ctx, opts) {
     autoplay: null,
     seq: 0,
   };
+  let notesCard = null;
 
   shell.setTitle(game.name || `${game.white || '?'} – ${game.black || '?'}`, [
     { text: `${moves.length} moves`, kind: '' },
@@ -58,11 +68,15 @@ export function mountMemory(host, ctx, opts) {
   shell.addTool('Hint', () => hint());
   shell.addTool('Flip', () => shell.board.setOrientation(shell.board.orientation === 'w' ? 'b' : 'w'));
 
+  const arrowsBtn = shell.addTool(settings.memoryArrows === false ? 'Arrows off' : 'Arrows on', () => {
+    settings.memoryArrows = settings.memoryArrows === false; // flip
+    saveSettings();
+    arrowsBtn.textContent = settings.memoryArrows ? 'Arrows on' : 'Arrows off';
+    paint();
+  });
   const navRow = shell.extra;
-  const backBtn = elBtn('◀ Prev', () => stepTo(st.mode === 'study' ? Math.max(0, st.ply - 1) : st.ply));
-  const fwdBtn = elBtn('Next ▶', () => stepTo(Math.min(toPly, st.ply + 1)));
   const playBtn = elBtn('Autoplay', () => toggleAutoplay());
-  navRow.append(backBtn, fwdBtn, playBtn);
+  navRow.append(playBtn);
   shell.actions.append(
     elBtn('Restart', () => reset()),
     elBtn(st.mode === 'study' ? 'Start quiz' : 'Study mode', () => switchMode(), true),
@@ -83,10 +97,46 @@ export function mountMemory(host, ctx, opts) {
     return side === 'both' || side === mover;
   }
 
+  /** Navigate in study mode (the strip and keyboard use this). */
+  function goTo(ply) {
+    if (st.mode !== 'study') return;
+    stopAutoplay();
+    stepTo(Math.max(0, Math.min(toPly, ply)));
+  }
+
+  // ---- notes: PGN/user comments and arrows, per ply
+  const noteStore = () => (state.memoryNotes || (state.memoryNotes = {}));
+  function noteMap() { const all = noteStore(); return all[game.id] || (all[game.id] = {}); }
+  function noteAt(ply) { return noteMap()[ply] || null; }
+  let editingNote = false;
+
+  function setNote(ply, patchObj) {
+    const map = noteMap();
+    const cur = map[ply] || { comment: '', arrows: [] };
+    const next = { ...cur, ...patchObj };
+    if (!next.comment && !(next.arrows && next.arrows.length)) delete map[ply];
+    else map[ply] = next;
+    persist('memoryNotes');
+    paint();
+  }
+
+  /** Arrows to draw for the current position. */
+  function currentArrows() {
+    if (st.mode !== 'study') return [];
+    const arrows = [];
+    if (settings.memoryArrows !== false && st.ply > 0) {
+      const u = ucis[st.ply - 1];
+      if (u) arrows.push(arrowOf(u, 'hint'));
+    }
+    const ann = noteAt(st.ply);
+    if (ann && ann.arrows) for (const a of ann.arrows) arrows.push({ from: a.from, to: a.to, color: a.color || 'green' });
+    return arrows;
+  }
+
   function paint() {
     shell.board.setPosition(st.fen, {
       last: st.lastUci ? { from: st.lastUci.slice(0, 2), to: st.lastUci.slice(2, 4) } : null,
-      arrows: [],
+      arrows: currentArrows(),
       clearSelection: true,
     });
     const interactive = st.mode === 'quiz' && !st.done && isQuestion(st.ply);
@@ -98,6 +148,67 @@ export function mountMemory(host, ctx, opts) {
     if (st.done) shell.setStatus('<span class="faint">Finished</span>');
     else if (st.mode === 'quiz' && isQuestion(st.ply)) shell.setStatus(`<b>Your move</b> <span class="faint">· ply ${st.ply + 1}, ${who} to move</span>`);
     else shell.setStatus(`<span class="faint">Ply ${st.ply + 1} · ${who} to move</span>`);
+    renderNotes();
+  }
+
+  // ---- notes card (study mode only)
+  notesCard = el('div', { class: 'card', style: 'margin-top:12px' });
+  shell.sideCol.append(notesCard);
+
+  function renderNotes() {
+    if (!notesCard) return;
+    notesCard.classList.toggle('hidden', st.mode !== 'study');
+    if (st.mode !== 'study') return;
+    notesCard.innerHTML = '';
+    const ann = noteAt(st.ply) || { comment: '', arrows: [] };
+    const arrows = ann.arrows || [];
+    const head = el('div', { class: 'card-head' },
+      el('h3', { style: 'margin:0', text: 'Notes' }),
+      el('span', { class: 'badge', text: `after ply ${st.ply}` }),
+      el('div', { class: 'spacer' }),
+      el('button', {
+        class: 'chip' + (settings.memoryComments !== false ? ' on' : ''), text: 'Comments',
+        onclick: () => { settings.memoryComments = settings.memoryComments === false; saveSettings(); paint(); },
+      }),
+      el('button', {
+        class: 'chip' + (settings.memoryArrows !== false ? ' on' : ''), text: 'Move arrow',
+        onclick: () => { settings.memoryArrows = settings.memoryArrows === false; saveSettings(); arrowsBtn.textContent = settings.memoryArrows ? 'Arrows on' : 'Arrows off'; paint(); },
+      }));
+    notesCard.append(head);
+
+    const showComments = settings.memoryComments !== false;
+    if (showComments) {
+      if (editingNote) {
+        const area = el('textarea', { style: 'min-height:70px;width:100%', placeholder: 'Your note for this position…' });
+        area.value = ann.comment || '';
+        notesCard.append(area, el('div', { class: 'row', style: 'margin-top:6px;gap:6px' },
+          el('button', {
+            class: 'btn sm primary', text: 'Save note',
+            onclick: () => { editingNote = false; setNote(st.ply, { comment: area.value.trim() }); toast('Note saved', 'ok'); },
+          }),
+          el('button', { class: 'btn sm', text: 'Cancel', onclick: () => { editingNote = false; paint(); } })));
+      } else {
+        notesCard.append(el('div', { class: 'dim', style: 'font-size:.84rem;min-height:1.6em;white-space:pre-wrap', text: ann.comment || 'No comment for this position.' }));
+        notesCard.append(el('div', { class: 'row', style: 'gap:6px;margin-top:6px' },
+          el('button', { class: 'btn sm', text: ann.comment ? 'Edit note' : 'Add note', onclick: () => { editingNote = true; paint(); } }),
+          ann.comment ? el('button', { class: 'btn sm ghost', text: 'Clear note', onclick: () => { setNote(st.ply, { comment: '' }); } }) : null));
+      }
+    }
+
+    notesCard.append(el('div', { class: 'row', style: 'gap:6px;margin-top:8px;flex-wrap:wrap' },
+      el('span', { class: 'faint', style: 'font-size:.76rem', text: `${arrows.length} saved arrow${arrows.length === 1 ? '' : 's'}` }),
+      el('button', {
+        class: 'btn sm', text: 'Save board arrows', title: 'Right-click on the board to draw, then save them here',
+        onclick: () => {
+          const marks = shell.board.getMarks ? shell.board.getMarks() : { arrows: [] };
+          const list = (marks.arrows || []).map(([key, colour]) => ({ from: key.slice(0, 2), to: key.slice(2, 4), color: colour }));
+          if (!list.length) { toast('Draw an arrow on the board first (right-click drag)', ''); return; }
+          setNote(st.ply, { arrows: list });
+          shell.board.clearMarks && shell.board.clearMarks();
+          toast(`${list.length} arrow(s) saved`, 'ok');
+        },
+      }),
+      arrows.length ? el('button', { class: 'btn sm ghost', text: 'Clear arrows', onclick: () => setNote(st.ply, { arrows: [] }) }) : null));
   }
 
   function marks() {

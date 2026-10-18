@@ -110,7 +110,78 @@ export function parsePGN(text, fallbackFen = START_FEN) {
   return splitGames(text).map((raw) => parseGame(raw, fallbackFen));
 }
 
-export function wrapMovetext(moves, startFen = START_FEN) {
+const CAL_COLOUR = { G: 'green', R: 'red', Y: 'yellow', B: 'blue' };
+const CAL_LETTER = { green: 'G', red: 'R', yellow: 'Y', blue: 'B' };
+
+/** Split a PGN comment body into free text plus `[%cal ...]` arrows. */
+export function parseAnnotationText(body) {
+  const arrows = [];
+  const cal = /\[%cal\s+([^\]]+)\]/i.exec(body || '');
+  if (cal) {
+    for (const part of cal[1].split(',')) {
+      const m = /^\s*([GRYB])([a-h][1-8])([a-h][1-8])\s*$/.exec(part);
+      if (m) arrows.push({ from: m[2], to: m[3], color: CAL_COLOUR[m[1]] || 'green' });
+    }
+  }
+  const comment = String(body || '').replace(/\[%cal\s+[^\]]+\]/ig, '').trim();
+  return { comment, arrows };
+}
+
+/** Annotations → PGN comment, e.g. `{text [%cal Gc1f4,Re8e4]}`. */
+export function annotationToPgn(ann) {
+  if (!ann) return '';
+  const parts = [];
+  if (ann.arrows && ann.arrows.length) {
+    parts.push('[%cal ' + ann.arrows.map((a) => (CAL_LETTER[a.color] || 'G') + a.from + a.to).join(',') + ']');
+  }
+  if (ann.comment) parts.push(String(ann.comment).replace(/[{}]/g, '').trim());
+  return parts.length ? `{${parts.join(' ')}}` : '';
+}
+
+/**
+ * Comments and arrows from a PGN block, keyed by the number of plies played
+ * (0 = the starting position). Comments inside variations are ignored.
+ */
+export function parseAnnotations(raw) {
+  const text = movetextOf(raw);
+  const out = {};
+  let ply = 0;
+  let depth = 0;
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === '(') { depth++; i++; continue; }
+    if (ch === ')') { if (depth) depth--; i++; continue; }
+    if (ch === ';') { const j = text.indexOf('\n', i); i = j < 0 ? text.length : j; continue; }
+    if (ch === '{') {
+      const j = text.indexOf('}', i + 1);
+      const body = text.slice(i + 1, j < 0 ? text.length : j);
+      i = j < 0 ? text.length : j + 1;
+      if (depth === 0) {
+        const parsed = parseAnnotationText(body);
+        if (parsed.comment || parsed.arrows.length) {
+          const cur = out[ply] || { comment: '', arrows: [] };
+          out[ply] = {
+            comment: [cur.comment, parsed.comment].filter(Boolean).join(' ').trim(),
+            arrows: cur.arrows.concat(parsed.arrows),
+          };
+        }
+      }
+      continue;
+    }
+    const m = /^\s*([^\s(){};]+)/.exec(text.slice(i));
+    if (!m) { i++; continue; }
+    i += m[0].length;
+    const tok = m[1];
+    if (/^\d+\.(\.\.)?$/.test(tok)) continue;
+    if (/^(1-0|0-1|1\/2-1\/2|½-½|\*)$/.test(tok)) continue;
+    if (tok.startsWith('$') || /^[!?]+$/.test(tok)) continue;
+    ply += 1;
+  }
+  return out;
+}
+
+export function wrapMovetext(moves, startFen = START_FEN, annotations = null) {
   const parts = [];
   const startsBlack = startFen.split(' ')[1] === 'b';
   let moveNo = parseInt((startFen.split(' ')[5] || '1'), 10) || 1;
@@ -119,6 +190,11 @@ export function wrapMovetext(moves, startFen = START_FEN) {
     if (whiteTurn) parts.push(`${moveNo}.`);
     else if (i === 0) parts.push(`${moveNo}...`);
     parts.push(san);
+    if (annotations) {
+      const ann = annotations[i + 1];
+      const text = annotationToPgn(ann);
+      if (text) parts.push(text);
+    }
     if (!whiteTurn) moveNo++;
   });
   // wrap at ~80 chars per line
@@ -132,7 +208,7 @@ export function wrapMovetext(moves, startFen = START_FEN) {
   return lines.join('\n');
 }
 
-export function buildPGN({ headers = {}, moves = [], result, startFen = START_FEN }) {
+export function buildPGN({ headers = {}, moves = [], result, startFen = START_FEN, annotations = null }) {
   const h = {
     Event: 'SnartChessBox',
     Site: '?',
@@ -151,7 +227,7 @@ export function buildPGN({ headers = {}, moves = [], result, startFen = START_FE
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
     .map(([k, v]) => `[${k} "${String(v).replace(/"/g, "'")}"]`)
     .join('\n');
-  return `${head}\n\n${wrapMovetext(moves, startFen)}\n${h.Result}\n`;
+  return `${head}\n\n${wrapMovetext(moves, startFen, annotations)}\n${h.Result}\n`;
 }
 
 export function pgnMulti(games) {

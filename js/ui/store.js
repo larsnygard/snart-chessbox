@@ -40,6 +40,8 @@ export const DEFAULT_SETTINGS = {
   // misc
   username: '',
   reviewDepthMs: 150,
+  memoryArrows: true,      // memory study: arrow for the move that was played
+  memoryComments: true,    // memory study: show PGN/user comments
   pgnMaxGames: 300,
 };
 

@@ -16,6 +16,7 @@ export function createBoardTools(host, opts) {
   const nav = opts.nav || null;
   const allowEngine = opts.allowEngine !== false;
 
+  let prevKeyCleanup = null; // must exist before the nav block installs its listener
   const wrap = el('div', { class: 'board-tools' });
   host.append(wrap);
 
@@ -30,10 +31,18 @@ export function createBoardTools(host, opts) {
       group.append(b);
       return b;
     };
-    mk('first', 'start', 'First move', () => nav.first && nav.first());
-    mk('back', 'back', 'Previous move', () => nav.back && nav.back());
-    mk('forward', 'next', 'Next move', () => nav.forward && nav.forward());
-    mk('last', 'end', 'Last move', () => nav.last && nav.last());
+    // two compact buttons on one line; Home/End still jump to the ends
+    mk('back', 'back', 'Previous move (←)', () => nav.back && nav.back());
+    mk('forward', 'next', 'Next move (→)', () => nav.forward && nav.forward());
+    const onKey = (e) => {
+      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+      if (e.key === 'ArrowLeft') { nav.back && nav.back(); refresh(); e.preventDefault(); }
+      else if (e.key === 'ArrowRight') { nav.forward && nav.forward(); refresh(); e.preventDefault(); }
+      else if (e.key === 'Home') { nav.first && nav.first(); refresh(); e.preventDefault(); }
+      else if (e.key === 'End') { nav.last && nav.last(); refresh(); e.preventDefault(); }
+    };
+    window.addEventListener('keydown', onKey);
+    prevKeyCleanup = () => window.removeEventListener('keydown', onKey);
     wrap.append(group);
   }
 
@@ -89,10 +98,8 @@ export function createBoardTools(host, opts) {
   function refresh() {
     if (nav && navBtns.back) {
       const s = nav.state ? nav.state() : {};
-      navBtns.first.disabled = !!s.atStart;
       navBtns.back.disabled = !!s.atStart;
       navBtns.forward.disabled = !!s.atEnd;
-      navBtns.last.disabled = !!s.atEnd;
     }
     if (!on || !allowEngine) return;
     token++;
@@ -142,7 +149,7 @@ export function createBoardTools(host, opts) {
     refresh,
     isOn: () => on,
     setOn(v) { if (v !== on) engineBtn.click(); },
-    destroy() { clearTimeout(timer); wrap.remove(); },
+    destroy() { clearTimeout(timer); if (prevKeyCleanup) prevKeyCleanup(); wrap.remove(); },
   };
   return api;
 }

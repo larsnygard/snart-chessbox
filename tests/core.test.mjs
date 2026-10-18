@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { candidatesWithin, pickWithin, rankLines, mulberry32, DEFAULT_SPREAD_CP } from '../js/core/evalband.js';
-import { parsePGN, parseGame, buildPGN, cleanMovetext, movetextTokens, splitGames, wrapMovetext } from '../js/core/pgn.js';
+import { parsePGN, parseGame, buildPGN, cleanMovetext, movetextTokens, splitGames, wrapMovetext, parseAnnotations, annotationToPgn } from '../js/core/pgn.js';
 import { emptyTree, addLine, buildFromGames, prune, treeLines, treeStats, annotateLosses, dropBadMoves, findMoveNode, movesAt, pickBookMove } from '../js/core/repertoire.js';
 import { classify, reviewMoves, reviewSummary, blunderArrows, lossCp } from '../js/core/moveclass.js';
 import { review, newSrs, mastery, isDue } from '../js/core/srs.js';
@@ -147,6 +147,38 @@ test('SAN→UCI conversion covers castling and promotion', () => {
   assert.equal(r.ucis[0], 'b7b8q');
   const cast = sanToUci('r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1', ['O-O']);
   assert.equal(cast.ucis[0], 'e1g1');
+});
+
+test('annotations: comments and [%cal] arrows survive a PGN round trip', () => {
+  const raw = `[Event "Annotated"]
+[White "A"]
+[Black "B"]
+[Result "1-0"]
+
+1. e4 {king pawn [%cal Ge2e4,Re8e7]} e5 2. Nf3 {develops} (2. f4 exf4 {gambit, ignored}) Nc6 1-0`;
+  const ann = parseAnnotations(raw);
+  assert.equal(ann[1].comment, 'king pawn');
+  assert.deepEqual(ann[1].arrows, [
+    { from: 'e2', to: 'e4', color: 'green' },
+    { from: 'e8', to: 'e7', color: 'red' },
+  ]);
+  assert.equal(ann[3].comment, 'develops');
+  assert.equal(ann[2], undefined, 'comments inside variations are ignored');
+
+  const pgn = buildPGN({ headers: { White: 'A', Black: 'B', Result: '1-0' }, moves: ['e4', 'e5', 'Nf3', 'Nc6'], result: '1-0', annotations: ann });
+  assert.match(pgn, /\{.*\[%cal Ge2e4,Re8e7\].*\}/);
+  const back = parseAnnotations(pgn);
+  assert.deepEqual(back[1].arrows, ann[1].arrows);
+  assert.equal(back[1].comment, 'king pawn');
+  assert.equal(back[3].comment, 'develops');
+});
+
+test('annotation writer escapes braces and handles empty input', () => {
+  assert.equal(annotationToPgn(null), '');
+  assert.equal(annotationToPgn({ comment: '', arrows: [] }), '');
+  const patched = annotationToPgn({ comment: 'a {b} c', arrows: [{ from: 'a1', to: 'a2', color: 'yellow' }] });
+  assert.match(patched, /\[%cal Ya1a2\]/);
+  assert.ok(!/[{}]\s*b/.test(patched), 'braces are stripped from the text');
 });
 
 // ------------------------------------------------------------------ repertoire

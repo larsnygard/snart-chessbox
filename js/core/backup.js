@@ -23,6 +23,7 @@ export function makeBundle(state, now = Date.now()) {
     games: state.games || [],
     memoryGames: state.memoryGames || [],
     progress: state.progress || {},
+    memoryNotes: state.memoryNotes || {},
     customPuzzles: state.customPuzzles || [],
   };
 }
@@ -43,6 +44,7 @@ export function parseBundle(text) {
     games: Array.isArray(data.games) ? data.games : [],
     memoryGames: Array.isArray(data.memoryGames) ? data.memoryGames : [],
     progress: data.progress || {},
+    memoryNotes: data.memoryNotes && typeof data.memoryNotes === 'object' ? data.memoryNotes : {},
     customPuzzles: Array.isArray(data.customPuzzles) ? data.customPuzzles : [],
     exportedAt: data.exportedAt,
   };

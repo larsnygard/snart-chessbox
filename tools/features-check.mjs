@@ -352,6 +352,40 @@ await page.waitForTimeout(800);
 const exportToast = await page.locator('.toast').last().textContent().catch(() => '');
 check('export to repertoire adds the game to a tree', /added to/i.test(exportToast || ''), (exportToast || '').trim());
 
+// ---------------------------------------------------------------- memory study: arrows + notes
+await goto('/#/memory');
+await page.waitForTimeout(800);
+await page.locator('.game-list .list-item button:has-text("Study")').first().click();
+await page.waitForTimeout(1200);
+const navButtons = await page.locator('.navgroup button').count();
+check('back/forward are two compact buttons on one line', navButtons === 2, `${navButtons} nav buttons`);
+await page.locator('.navgroup button').nth(1).click(); // forward one ply
+await page.waitForTimeout(400);
+const arrowsOn = await page.locator('.arrows .arrow-line').count();
+check('study mode draws an arrow for the game move', arrowsOn >= 1, `${arrowsOn} arrows`);
+await page.locator('button:has-text("Arrows on")').first().click();
+await page.waitForTimeout(400);
+const arrowsOff = await page.locator('.arrows .arrow-line').count();
+check('the arrow toggle turns move arrows off', arrowsOff < arrowsOn, `${arrowsOn} → ${arrowsOff}`);
+await page.locator('button:has-text("Arrows off")').first().click();
+await page.waitForTimeout(300);
+
+await page.locator('button:has-text("Add note")').first().click();
+await page.waitForTimeout(300);
+await page.locator('.card:has-text("Notes") textarea').fill('Key idea: develop before attacking.');
+await page.locator('button:has-text("Save note")').click();
+await page.waitForTimeout(500);
+const noteText = await page.locator('.card:has-text("Notes")').first().textContent().catch(() => '');
+check('a note can be added to a position', /Key idea/.test(noteText || ''), (noteText || '').replace(/\s+/g, ' ').slice(0, 60));
+await goto('/#/memory');
+await page.waitForTimeout(500);
+await page.locator('.game-list .list-item button:has-text("Study")').first().click();
+await page.waitForTimeout(800);
+await page.locator('.navgroup button').nth(1).click();
+await page.waitForTimeout(500);
+const noteAfterReload = await page.locator('.card:has-text("Notes")').first().textContent().catch(() => '');
+check('notes survive a reload', /Key idea/.test(noteAfterReload || ''), (noteAfterReload || '').replace(/\s+/g, ' ').slice(0, 50));
+
 // ---------------------------------------------------------------- starter packs
 await goto('/#/repertoire');
 await page.waitForTimeout(1400);

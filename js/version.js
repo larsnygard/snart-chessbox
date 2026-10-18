@@ -5,7 +5,7 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.6.0-beta.1';
+export const VERSION = '1.7.0-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
 export const BUILD = '2026-10-19';
 export const IS_BETA = CHANNEL === 'beta';
@@ -21,6 +21,17 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.7.0-beta.1',
+    date: '2026-10-19',
+    channel: 'beta',
+    notes: [
+      'Game memory (study): a toggle for the move arrow, plus notes — comments and arrows per position, stored with the game and written into the exported PGN as {comment [%cal ...]}. Comments already in an imported PGN are picked up automatically.',
+      'Annotations are hidden in quiz mode so they cannot give the answer away.',
+      'Back/forward are now two compact buttons (← / → work too, Home/End jump to the ends).',
+      'Endgames: the bogus “rook and pawn vs king — bridge” drill is gone. The rook group now has the real Lucena position (+6.6, bridge technique) and the Philidor position (0.00, third-rank defence), both taken from the literature and re-verified with Stockfish.',
+    ],
+  },
   {
     version: '1.6.0-beta.1',
     date: '2026-10-19',

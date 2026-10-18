@@ -81,14 +81,21 @@ export const ENDGAME_DRILLS = [
     tags: ['pawn', 'outside'], hint: 'Trade the e-pawns, walk the king to the queenside and win the black pawn — the c-pawn runs.',
   },
   {
-    id: 'krpk-1', group: 'rook', title: 'Rook and pawn vs king — bridge', goal: 'promote', side: 'w',
-    fen: '8/8/8/8/8/8/4P3/3RK2k w - - 0 1', maxMoves: 26, level: 2,
-    tags: ['rook', 'promotion'], hint: 'Rook to the fourth rank, king in front of the pawn, then build the bridge.',
+    // The Lucena position as given in the literature: White Kb8, pawn b7, rook c1;
+    // Black Kd8, rook a2. White wins (Stockfish +6.6) by building the bridge — the
+    // king on b8 blocks its own pawn until it steps out behind the rook.
+    id: 'lucena-1', group: 'rook', title: 'Lucena position — build the bridge', goal: 'promote', side: 'w',
+    fen: '1K1k4/1P6/8/8/8/8/r7/2R5 w - - 0 1', maxMoves: 40, level: 4,
+    tags: ['rook', 'technique', 'lucena'],
+    hint: 'The bridge: put the rook on the fourth rank, then walk the king out of the checks — the rook is your shield, and on a7/b8 the pawn promotes safely.',
   },
   {
-    id: 'rpk-rk-1', group: 'rook', title: 'Rook and pawn vs rook', goal: 'promote', side: 'w',
-    fen: '4k3/1P6/1K6/R7/8/8/8/7r w - - 0 1', maxMoves: 40, level: 4,
-    tags: ['rook', 'technique', 'lucena'], hint: 'Promote, then build the Lucena bridge: rook on the fourth rank, king steps out of the checks.',
+    // Philidor position (1777): White defends with Ke1, Ra3 against Black Kf4, Pe4,
+    // Rh2. Draw (Stockfish 0.00) with the rook staying on the third rank.
+    id: 'philidor-1', group: 'rook', title: 'Philidor position — hold the draw', goal: 'hold', side: 'w',
+    fen: '8/8/8/8/4pk2/R7/7r/4K3 w - - 0 1', maxMoves: 30, level: 4,
+    tags: ['rook', 'defence', 'philidor'],
+    hint: 'Third-rank defence: keep the rook on the third rank so the black king can never reach e3, and keep your king in front of the pawn on e1/e2.',
   },
   {
     id: 'backrank-1', group: 'patterns', title: 'Back rank mate in one', goal: 'mate', side: 'w',

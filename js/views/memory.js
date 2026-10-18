@@ -2,7 +2,7 @@
 
 import { state, navigate, trainerCtx, persist, data } from '../app.js';
 import { el, icon, toast, modal, confirmDialog } from '../ui/components.js';
-import { parsePGN, buildPGN } from '../core/pgn.js';
+import { parsePGN, buildPGN, parseAnnotations } from '../core/pgn.js';
 import { sanToUci } from '../core/chessutil.js';
 import { mountMemory } from '../trainers/memory.js';
 import { mastery } from '../core/srs.js';
@@ -58,6 +58,7 @@ function renderList(host) {
       el('div', { class: 't' },
         el('span', { class: 'name', text: g.name || `${g.white || '?'} – ${g.black || '?'}${g.year ? ' (' + g.year + ')' : ''}` }),
         el('span', { class: 'sub', text: `${g.white || '?'} vs ${g.black || '?'}${g.event ? ' · ' + g.event : ''} · ${(g.moves || []).length} moves` })),
+      Object.keys((state.memoryNotes || {})[g.id] || {}).length ? el('span', { class: 'badge', text: 'annotated' }) : null,
       p && p.last === 'ok' ? el('span', { class: 'badge good', text: 'learned' }) : (p ? el('span', { class: 'badge', text: `${Math.min(100, (p.box || 0) * 20)}%` }) : null),
       g.builtin ? null : el('button', {
         class: 'btn ghost sm icon', html: icon('trash'),
@@ -99,8 +100,14 @@ function renderList(host) {
             if (!parsed.length) { toast('No legal game found in that PGN', 'bad'); return false; }
             for (const g of parsed) {
               const ucis = sanToUci(g.startFen, g.moves).ucis;
+              const memId = uid('mem');
+              const ann = parseAnnotations(g.raw || '');
+              if (Object.keys(ann).length) {
+                state.memoryNotes = state.memoryNotes || {};
+                state.memoryNotes[memId] = ann;
+              }
               state.memoryGames.push({
-                id: uid('mem'),
+                id: memId,
                 name: nameInput.value || g.headers.Event || `${g.headers.White || '?'} – ${g.headers.Black || '?'}`,
                 white: g.headers.White || '?', black: g.headers.Black || '?',
                 year: (g.headers.Date || '').slice(0, 4) || '', event: g.headers.Event || '',
@@ -109,6 +116,7 @@ function renderList(host) {
               });
             }
             persist('memoryGames', true);
+            persist('memoryNotes', true);
             toast(`Added ${parsed.length} game(s)`, 'ok');
             navigate('/memory');
           },
@@ -125,8 +133,9 @@ function renderList(host) {
         White: g.white || '?', Black: g.black || '?', Result: g.result || '*',
       },
       moves: g.moves, result: g.result || '*', startFen: g.startFen,
+      annotations: (state.memoryNotes || {})[g.id] || null,
     }));
-    download(`${exportName('snart-chess-memory')}.pgn`, games.map(buildPGN).join('\n'), 'application/x-chess-pgn');
+    download(`${exportName('chessbox-memory')}.pgn`, games.map(buildPGN).join('\n'), 'application/x-chess-pgn');
     toast('PGN exported', 'ok');
   }
 
@@ -160,8 +169,8 @@ function renderTrainer(host, id, query) {
     el('option', { value: 'w', text: 'White moves only' }),
     el('option', { value: 'b', text: 'Black moves only' }));
   sideSel.value = cfg.side;
-  const fromSel = el('select', {}, ...rangeOptions(0, moves.length, 2, cfg.fromPly));
-  const toSel = el('select', {}, ...rangeOptions(2, moves.length + 2, 2, cfg.toPly));
+  const fromSel = el('select', {}, ...rangeOptions(0, moves.length, 1, cfg.fromPly));
+  const toSel = el('select', {}, ...rangeOptions(0, moves.length, 1, cfg.toPly));
   const go = el('button', { class: 'btn sm primary', text: 'Load', onclick: () => {
     navigate(`/memory/${encodeURIComponent(game.id)}?mode=${modeSel.value}&side=${sideSel.value}&from=${fromSel.value}&to=${toSel.value}`);
   } });
@@ -196,7 +205,11 @@ function renderTrainer(host, id, query) {
     el('div', { class: 'row' },
       el('button', { class: 'btn sm', text: 'Export this game (PGN)', onclick: () => {
         download(`${exportName('game-' + (game.name || 'memory').replace(/\W+/g, '-').slice(0, 40))}.pgn`,
-          buildPGN({ headers: { Event: game.event || '', White: game.white || '?', Black: game.black || '?', Result: game.result || '*' }, moves: game.moves, startFen: game.startFen }),
+          buildPGN({
+            headers: { Event: game.event || '', White: game.white || '?', Black: game.black || '?', Result: game.result || '*' },
+            moves: game.moves, startFen: game.startFen,
+            annotations: (state.memoryNotes || {})[game.id] || null,
+          }),
           'application/x-chess-pgn');
       } }),
       el('span', { class: 'faint', style: 'font-size:.78rem', text: game.source ? `Source: ${game.source}` : '' }))));

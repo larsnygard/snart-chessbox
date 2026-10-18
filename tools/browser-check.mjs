@@ -122,15 +122,16 @@ await page.waitForTimeout(2500);
 const movesText = await page.locator('.movelist').first().textContent();
 check('engine replies in an endgame drill', /Qg3/.test(movesText) && /K[a-h][1-8]/.test(movesText), movesText.trim().slice(0, 60));
 
-// move-list navigation on a live drill
-await page.locator('.navgroup button').nth(1).click();
+// move-list navigation on a live drill (two compact buttons: back, forward)
+await page.locator('.navgroup button').nth(0).click();
 await page.waitForTimeout(300);
 const backStatus = await page.locator('.board-status').first().textContent().catch(() => '');
 check('move-list back arrow reviews the previous ply', /Reviewing ply/i.test(backStatus || ''), (backStatus || '').trim().slice(0, 50));
-await page.locator('.navgroup button').nth(3).click();
-await page.waitForTimeout(300);
+await page.locator('.navgroup button').nth(1).click();
+await page.waitForTimeout(400);
 const liveStatus = await page.locator('.board-status').first().textContent().catch(() => '');
-check('move-list forward-to-end returns to the live position', /Your move|thinking/i.test(liveStatus || ''), (liveStatus || '').trim().slice(0, 40));
+check('move-list forward arrow returns to the live position', /Your move|thinking/i.test(liveStatus || ''), (liveStatus || '').trim().slice(0, 40));
+check('the move list has exactly two navigation buttons', await page.locator('.navgroup button').count() === 2);
 
 // ---- 4b. the board strip: eval bar + engine switch + play-from-here
 const hasTools = await page.locator('.board-tools').count();

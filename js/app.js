@@ -17,6 +17,7 @@ export const state = {
   games: [],
   memoryGames: [],
   progress: {},
+  memoryNotes: {},
   customPuzzles: [],
   analyses: {},
   data: {},
@@ -24,7 +25,7 @@ export const state = {
   lastRoute: 'home',
 };
 
-const PERSIST_KEYS = ['repertoires', 'sets', 'games', 'memoryGames', 'progress', 'customPuzzles', 'analyses'];
+const PERSIST_KEYS = ['repertoires', 'sets', 'games', 'memoryGames', 'progress', 'memoryNotes', 'customPuzzles', 'analyses'];
 const saveTimers = {};
 
 export function persist(key, immediate = false) {
@@ -291,8 +292,9 @@ async function boot() {
     const stored = await store.get('settings', null);
     state.settings = Store.migrateSettings(stored || store.readMirrorSettings() || {});
     for (const key of PERSIST_KEYS) {
-      const v = await store.get(key, key === 'progress' || key === 'analyses' ? {} : []);
-      state[key] = v === null || v === undefined ? (key === 'progress' || key === 'analyses' ? {} : []) : v;
+      const empty = key === 'progress' || key === 'analyses' || key === 'memoryNotes' ? {} : [];
+      const v = await store.get(key, empty);
+      state[key] = v === null || v === undefined ? empty : v;
     }
     sound.configure({ sound: state.settings.sound, vol: state.settings.volume });
     await initResume();

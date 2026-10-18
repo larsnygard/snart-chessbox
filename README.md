@@ -52,7 +52,8 @@ the whole app (engine included) is cached by a service worker so it works on a p
 
 **Endgame drills**
 - 17 positions with machine-checked results: queen/rook/two-bishop/bishop+knight mates,
-  king+pawn technique, stalemate traps, rook-and-pawn bridge, back-rank patterns.
+  king+pawn technique, stalemate traps, the **Lucena** position (bridge) and the **Philidor**
+  position (third-rank defence), back-rank patterns.
 - Goal types (`mate`, `promote`, `hold the draw`), move budgets, take-backs, engine hints.
 - Every drill is verified with Stockfish — see `tools/verify-endgames.mjs`.
 
@@ -100,6 +101,10 @@ the whole app (engine included) is cached by a service worker so it works on a p
   send it to memory training, export the filtered set as PGN, or build a repertoire from it.
 
 **Game memory**
+- Study mode has a **move-arrow toggle** and **per-position notes**: comments and arrows you
+  draw with right-click, saved with the game and written into the exported PGN
+  (`{comment [%cal Gc1f4,...]}`). Comments already present in an imported PGN are picked up.
+  Notes are hidden in quiz mode so they cannot leak the answer.
 - 36 famous games (with sources) plus any game you add.
 - Study mode steps through the game; quiz mode replays it and asks you to reproduce your
   side's moves from memory, with an accuracy score per run.

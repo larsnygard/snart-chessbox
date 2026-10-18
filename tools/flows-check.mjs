@@ -238,7 +238,7 @@ check('every repertoire move at the position is drawn as an arrow', rootArrows >
 await page.locator('.mtree-mv').first().click();
 await page.waitForTimeout(400);
 const afterFwd = await page.locator('.board-status').first().textContent().catch(() => '');
-await page.locator('.navgroup button').nth(1).click();
+await page.locator('.navgroup button').nth(0).click(); // two buttons now: [back, forward]
 await page.waitForTimeout(400);
 const afterBack = await page.locator('.board-status').first().textContent().catch(() => '');
 check('move-list arrows step back and forward', /Move 1/.test(afterFwd || '') && /Starting position/.test(afterBack || ''),
