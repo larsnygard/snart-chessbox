@@ -39,14 +39,14 @@ export function createBoardTools(host, opts) {
 
   const evalText = el('span', { class: 'eval-text', text: '—' });
   const evalBar = el('div', { class: 'evalbar', title: 'Evaluation' }, el('i', { class: 'fill', style: 'width:50%' }));
-  const engineBtn = el('button', { class: 'btn sm', text: 'Engine: off' });
+  const engineBtn = el('button', { class: 'btn sm engine-switch', text: 'Engine: off' });
   const playBtn = el('button', { class: 'btn sm', text: 'Play engine from here' });
   const flipBtn = el('button', { class: 'btn sm ghost icon', html: icon('rotate'), title: 'Flip board' });
   const depthEl = el('span', { class: 'faint eval-depth', text: '' });
 
   if (allowEngine) wrap.append(evalText, evalBar, engineBtn, depthEl);
   else wrap.append(el('span', { class: 'faint', style: 'font-size:.76rem', text: 'Engine hidden in this mode' }));
-  wrap.append(el('div', { class: 'spacer' }), el('div', { class: 'row tight' }, playBtn, flipBtn));
+  wrap.append(el('div', { class: 'spacer' }), el('div', { class: 'row tight play-row' }, playBtn, flipBtn));
 
   let on = false;
   let busy = false;

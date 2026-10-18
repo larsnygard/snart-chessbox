@@ -435,14 +435,16 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   .board-status { font-size: .8rem; }
   .board-tools .btn { padding: 6px 10px; }
   .navgroup .btn { padding: 6px 8px; min-width: 34px; min-height: 34px; }
-  /* two rows on a phone: nav + eval on top, engine/play/flip below */
+  /* exactly two rows on a phone: nav + eval on top, engine + play + flip below */
   .board-tools { gap: 6px; }
+  .board-tools .navgroup { order: 1; }
+  .board-tools .eval-text { order: 2; min-width: 42px; font-size: .74rem; padding: 1px 5px; }
+  .board-tools .evalbar { order: 3; min-width: 54px; flex: 1 1 60px; }
   .board-tools .eval-depth { display: none; }
-  .board-tools .eval-text { min-width: 42px; font-size: .74rem; padding: 1px 5px; }
-  .board-tools .evalbar { min-width: 54px; flex: 1 1 60px; }
-  .board-tools .spacer { flex-basis: 100%; height: 0; margin: 0; }
-  .board-tools > .row.tight { flex: 1 1 100%; }
-  .board-tools > .row.tight .btn:first-child { flex: 1 1 auto; }
+  .board-tools .spacer { order: 4; flex-basis: 100%; height: 0; margin: 0; }
+  .board-tools .engine-switch { order: 5; }
+  .board-tools .play-row { order: 6; flex: 1 1 160px; }
+  .board-tools .play-row .btn:first-child { flex: 1 1 auto; }
 }
 @media (orientation: landscape) and (max-height: 560px) {
   .trainer { grid-template-columns: minmax(0, 1fr) minmax(240px, 34vw); }
