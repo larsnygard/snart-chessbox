@@ -30,6 +30,9 @@ export const DEFAULT_SETTINGS = {
   autoFlip: false,
   whiteOnBottom: false, // false: the side you play is at the bottom
   playBookRepIds: [], // repertoires the engine plays from in free play
+  playBookEnabled: true,
+  playSide: 'w',
+  playTimeId: 'none',
 
   // sound
   sound: true,

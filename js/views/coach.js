@@ -11,7 +11,7 @@ import { download, exportName } from '../core/backup.js';
 import { createBoard } from '../ui/board.js';
 import { orientationFor } from '../ui/orientation.js';
 import { createBoardTools } from '../ui/board-tools.js';
-import { mountFreeplay } from '../trainers/freeplay.js';
+import { mountFreeplay } from '../trainers/play.js';
 
 export function render(host, params, query) {
   const id = params && params[0];

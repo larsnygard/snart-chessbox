@@ -46,7 +46,10 @@ export function createBoardTools(host, opts) {
 
   if (allowEngine) wrap.append(evalText, evalBar, engineBtn, depthEl);
   else wrap.append(el('span', { class: 'faint', style: 'font-size:.76rem', text: 'Engine hidden in this mode' }));
-  wrap.append(el('div', { class: 'spacer' }), el('div', { class: 'row tight play-row' }, playBtn, flipBtn));
+  const playRow = el('div', { class: 'row tight play-row' });
+  if (opts.showPlayFromHere !== false) playRow.append(playBtn);
+  playRow.append(flipBtn);
+  wrap.append(el('div', { class: 'spacer' }), playRow);
 
   let on = false;
   let busy = false;

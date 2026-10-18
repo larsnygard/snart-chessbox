@@ -10,7 +10,7 @@ import { mountOpening, sansToUcis } from '../trainers/opening.js';
 import { mountEndgame } from '../trainers/endgame.js';
 import { mountPuzzle } from '../trainers/puzzle.js';
 import { mountMemory } from '../trainers/memory.js';
-import { mountFreeplay } from '../trainers/freeplay.js';
+import { mountFreeplay } from '../trainers/play.js';
 
 export function render(host, params) {
   const setId = params && params[0];

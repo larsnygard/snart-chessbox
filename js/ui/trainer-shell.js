@@ -63,6 +63,7 @@ export function trainerShell(host, opts = {}) {
     nav: opts.nav || null,
     allowEngine: opts.allowEngine !== false,
     onPlayFromHere: opts.onPlayFromHere,
+    showPlayFromHere: opts.showPlayFromHere,
   });
   board.onPosition(() => tools.refresh());
 

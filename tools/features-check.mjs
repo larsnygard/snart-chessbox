@@ -139,12 +139,12 @@ await page.waitForTimeout(800);
 await clickSquare('e2');
 await clickSquare('e4');
 await page.waitForTimeout(2200);
-const pliesBefore = await page.locator('.movelist .mv').count();
+const pliesBefore = await page.locator('.mtree-mv').count();
 await goto('/#/settings');           // leave the board entirely
 await page.waitForTimeout(400);
 await goto('/#/coach?fen=start');    // come back
 await page.waitForTimeout(1500);
-const pliesAfter = await page.locator('.movelist .mv').count();
+const pliesAfter = await page.locator('.mtree-mv').count();
 const toastText = await page.locator('.toast').last().textContent().catch(() => '');
 check('leaving and returning resumes the game', pliesAfter >= pliesBefore && pliesAfter >= 2,
   `${pliesBefore} → ${pliesAfter} plies, toast “${(toastText || '').trim()}”`);
@@ -207,9 +207,11 @@ await page.locator('.modal label.check input').first().check();
 await page.locator('.modal button:has-text("Use selected")').click();
 await page.waitForTimeout(400);
 await page.locator('form, body').first();
-// start from a fresh game so the book applies from ply 1
-await page.locator('button:has-text("Restart")').first().click();
-await page.waitForTimeout(600);
+// start from a fresh game (the book applies from ply 1)
+await page.locator('button:has-text("New game")').first().click();
+await page.waitForTimeout(300);
+await page.locator('.modal button:has-text("Start")').last().click();
+await page.waitForTimeout(900);
 await clickSquare('e2');
 await clickSquare('e4');
 await page.waitForTimeout(2000);
@@ -220,6 +222,63 @@ await page.waitForTimeout(300);
 const bookModal = await page.locator('.modal').first().textContent().catch(() => '');
 check('book dialog shows which repertoire is playing', /in book|Out of book/i.test(bookModal || ''), (bookModal || '').match(/Position is in book: [^.]*|Out of book[^.]*/)?.[0] || '');
 await page.keyboard.press('Escape');
+
+// ---------------------------------------------------------------- play screen: game options
+await goto('/#/coach?fen=start');
+await page.locator('button:has-text("New game")').first().click();
+await page.waitForTimeout(400);
+const ngText = await page.locator('.modal').first().textContent().catch(() => '');
+check('new game dialog offers colour, time control, strength and book',
+  /Colour/.test(ngText || '') && /Time control/.test(ngText || '') && /Engine strength/.test(ngText || '') && /book/i.test(ngText || ''),
+  (ngText || '').replace(/\s+/g, ' ').slice(0, 70));
+await page.locator('.modal .chip:has-text("I play Black")').click();
+await page.locator('.modal .chip:has-text("3 + 0")').click();
+await page.locator('.modal button:has-text("Start")').last().click();
+await page.waitForTimeout(2500);
+const clockText = await page.locator('.badge.mono').first().textContent().catch(() => '');
+check('time control starts visible clocks', /\d:\d\d/.test(clockText || ''), clockText);
+check('playing Black puts Black at the bottom', (await topLeftSquare()) === 'h1', await topLeftSquare());
+
+await page.locator('button:has-text("Switch sides")').first().click();
+await page.waitForTimeout(400);
+if (await page.locator('.modal button:has-text("Switch sides")').count()) {
+  await page.locator('.modal button:has-text("Switch sides")').last().click();
+}
+await page.waitForTimeout(1200);
+check('switch sides starts a game with the other colour', (await topLeftSquare()) === 'a8', await topLeftSquare());
+
+// jumping back and playing a different move makes a variation
+await goto('/#/coach?fen=start');
+await page.waitForTimeout(600);
+await clickSquare('e2');
+await clickSquare('e4');
+await page.waitForTimeout(2000);
+await page.locator('.mtree-start').click();
+await page.waitForTimeout(300);
+await clickSquare('d2');
+await clickSquare('d4');
+await page.waitForTimeout(2000);
+const altCount = await page.locator('.mtree-alt').count();
+check('jumping back and playing another move creates a variation', altCount >= 1, `${altCount} alternative(s)`);
+const firstMoveNow = await page.locator('.mtree-mv').first().textContent().catch(() => '');
+check('the new move is on the board and in the list', firstMoveNow === 'd4', firstMoveNow);
+
+// delete the last move of the line
+const movesBefore = await page.locator('.mtree-mv').count();
+await page.locator('.mtree-edit').last().click();
+await page.waitForTimeout(400);
+await page.locator('.modal button:has-text("Delete from this move")').click();
+await page.waitForTimeout(800);
+const movesAfter = await page.locator('.mtree-mv').count();
+check('delete removes the move and its continuation', movesAfter < movesBefore, `${movesBefore} → ${movesAfter}`);
+
+// export to a repertoire
+await page.locator('button:has-text("Export")').first().click();
+await page.waitForTimeout(400);
+await page.locator('.modal button:has-text("Export")').last().click();
+await page.waitForTimeout(800);
+const exportToast = await page.locator('.toast').last().textContent().catch(() => '');
+check('export to repertoire adds the game to a tree', /added to/i.test(exportToast || ''), (exportToast || '').trim());
 
 // ---------------------------------------------------------------- PGN database
 await goto('/#/database');

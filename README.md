@@ -60,6 +60,15 @@ the whole app (engine included) is cached by a service worker so it works on a p
 - Score card (wins 1, draws ½), per-board status, resign, new exhibition.
 
 **Play vs engine (with your own opening book)**
+- **New game dialog**: colour, time control (none, 3+0, 5+0, 5+3, 10+0, 15+10, 30+0),
+  engine strength, which repertoires the engine may use as a book, and an optional starting FEN.
+- **Clocks**: your clock ticks while it is your move and the engine's clock is charged its
+  searching time, with increment; flag falls end the game.
+- **Switch sides** starts a fresh game as the other colour, and **Export** adds the game (and
+  its variations) to an existing or new repertoire, so what you just played becomes trainable.
+- **Variations**: click any move in the score sheet (or use ◀ ▶) to jump back, then play a
+  different move — it becomes a variation and the old line is kept. Moves and whole variations
+  can be deleted from the ⋯ menu.
 - Strength, think time, randomness window and a dedicated **Engine settings** dialog reachable
   straight from the board — changing them mid-game applies from the next move.
 - **Book mode:** tick one or more repertoires and the engine plays their moves while the game
