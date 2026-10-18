@@ -423,6 +423,83 @@ check('bundled example database downloads and decompresses', exampleProbe.games 
   `${exampleProbe.games} games, ${Math.round(exampleProbe.chars / 1048576)} MB of PGN`);
 await page.screenshot({ path: OUT + '-database.png' });
 
+// ---------------------------------------------------------------- multiple databases
+await goto('/#/database');
+await page.waitForTimeout(700);
+await page.locator('button:has-text("New database")').first().click();
+await page.waitForTimeout(400);
+await page.locator('.modal input[type="text"]').first().fill('Second DB');
+await page.locator('.modal button:has-text("Create")').last().click();
+await page.waitForTimeout(900);
+const dbSelect = page.locator('#dbSelectHost select').first();
+const dbCountAfterCreate = await dbSelect.locator('option').count();
+check('a second database can be created', dbCountAfterCreate >= 2, `${dbCountAfterCreate} databases`);
+const activeName = await dbSelect.inputValue().catch(() => '');
+await page.locator('textarea').first().fill(pgn);
+await page.locator('button:has-text("Import pasted PGN")').click();
+await page.waitForTimeout(2200);
+const newBadge = await page.locator('.card-head .badge').first().textContent().catch(() => '');
+check('games import into the active database', /3 games/.test(newBadge || ''), newBadge);
+await page.locator('#dbSelectHost select').first().selectOption({ index: 0 }); // the first database is 'Main database'
+await page.waitForTimeout(900);
+const mainBadge = await page.locator('.card-head .badge').first().textContent().catch(() => '');
+check('switching databases switches the game set', /3 games/.test(mainBadge || ''), `active ${activeName} → ${mainBadge}`);
+
+// ---------------------------------------------------------------- create a database from search results
+await page.locator('input[placeholder*="Player name"]').fill('Kasparov');
+await page.locator('button:has-text("Search")').click();
+await page.waitForTimeout(600);
+await page.locator('button:has-text("New database from these")').click();
+await page.waitForTimeout(400);
+await page.locator('.modal input[type="text"]').first().fill('Kasparov only');
+await page.locator('.modal button:has-text("Create")').last().click();
+await page.waitForTimeout(1500);
+const kasparovBadge = await page.locator('.card-head .badge').first().textContent().catch(() => '');
+check('a new database can be built from the search results', /2 games/.test(kasparovBadge || ''), kasparovBadge);
+
+// ---------------------------------------------------------------- zip backup + restore
+const [zipDownload] = await Promise.all([
+  page.waitForEvent('download', { timeout: 20000 }),
+  page.locator('button:has-text("Backup (.zip)")').click(),
+]);
+const zipPath = await zipDownload.path();
+check('database backup downloads a zip', /\.zip$/.test(zipDownload.suggestedFilename()), zipDownload.suggestedFilename());
+await page.locator('input[type="file"][accept*="zip"]').setInputFiles(zipPath);
+await page.waitForTimeout(800);
+const zipModal = await page.locator('.modal').first().textContent().catch(() => '');
+check('a zipped backup offers restore as a new database', /Import zipped PGN/i.test(zipModal || ''), (zipModal || '').replace(/\s+/g, ' ').slice(0, 60));
+await page.locator('.modal input[type="text"]').first().fill('Restored');
+await page.locator('.modal button:has-text("Import")').last().click();
+await page.waitForTimeout(2500);
+const restoredBadge = await page.locator('.card-head .badge').first().textContent().catch(() => '');
+check('restoring the zip recreates the games', /2 games/.test(restoredBadge || ''), restoredBadge);
+
+// ---------------------------------------------------------------- game collections
+await goto('/#/coach');
+await page.waitForTimeout(700);
+// the library needs one game before collections mean anything
+await page.locator('textarea').first().fill(pgn);
+await page.locator('button:has-text("Add games")').first().click();
+await page.waitForTimeout(1500);
+await page.locator('.chip:has-text("New collection")').click();
+await page.waitForTimeout(400);
+await page.locator('.modal input[type="text"]').first().fill('Club games');
+await page.locator('.modal button:has-text("Create")').last().click();
+await page.waitForTimeout(900);
+const colChip = await page.locator('.chip:has-text("Club games")').first().textContent().catch(() => '');
+check('a game collection can be created', /Club games/.test(colChip || ''), colChip);
+await page.locator('.game-list .list-item button[title*="Collection"]').first().click();
+await page.waitForTimeout(400);
+await page.locator('.modal select').first().selectOption({ label: 'Club games' });
+await page.locator('.modal button:has-text("Save")').last().click();
+await page.waitForTimeout(900);
+const clubCount = await page.locator('.chip:has-text("Club games")').first().textContent().catch(() => '');
+check('a game can be moved into a collection', /Club games \(1\)/.test(clubCount || ''), clubCount);
+await page.locator('.chip:has-text("Club games")').first().click();
+await page.waitForTimeout(700);
+const inClub = await page.locator('.game-list .list-item').count();
+check('filtering by collection shows its games', inClub === 1, `${inClub} games`);
+
 const unique = [...new Set(errors)];
 check('no console/page errors', unique.length === 0, unique.slice(0, 3).join(' | '));
 

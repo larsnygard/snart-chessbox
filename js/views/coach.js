@@ -83,12 +83,6 @@ function renderList(host) {
 
   host.append(importCard);
 
-  if (!games.length) {
-    host.append(el('div', { class: 'empty', style: 'margin-top:14px' },
-      'No games yet. Import a PGN above — or play a game against the engine and analyse it afterwards.'));
-    return { destroy() {} };
-  }
-
   const head = el('div', { class: 'row', style: 'margin:16px 0 10px' },
     el('h3', { text: 'Your games' }), el('div', { class: 'spacer' }),
     el('button', { class: 'btn sm ghost', html: `${icon('download')}<span>Export PGN</span>`, onclick: exportAll }),
@@ -105,16 +99,156 @@ function renderList(host) {
   host.append(head);
 
   const mine = state.settings.username ? games.filter((g) => matchesUser(g, state.settings.username)) : games;
+
+  // ---- collections -----------------------------------------------------
+  const collections = state.gameCollections || (state.gameCollections = []);
+  let activeCol = (() => { try { return localStorage.getItem('scb.coachCollection') || 'all'; } catch (e) { return 'all'; } })();
+  const setCol = (id) => {
+    activeCol = id;
+    try { localStorage.setItem('scb.coachCollection', id); } catch (e) { /* ignore */ }
+    navigate('/coach');
+  };
+  const inCol = (g) => activeCol === 'all' ? true : activeCol === 'none' ? !g.collection : g.collection === activeCol;
+  const colName = (id) => (collections.find((c) => c.id === id) || {}).name || '';
+
+  const colBar = el('div', { class: 'filters', style: 'margin:12px 0' });
+  function drawColBar() {
+    colBar.innerHTML = '';
+    const countFor = (id) => mine.filter((g) => (id === 'all' ? true : id === 'none' ? !g.collection : g.collection === id)).length;
+    const chip = (id, label) => el('button', {
+      class: 'chip' + (activeCol === id ? ' on' : ''), text: `${label} (${countFor(id)})`,
+      onclick: () => setCol(id),
+    });
+    colBar.append(chip('all', 'All games'), chip('none', 'Unfiled'));
+    for (const c of collections) colBar.append(chip(c.id, c.name));
+    colBar.append(el('button', { class: 'chip', html: `${icon('plus')} New collection`, onclick: () => newCollectionDialog() }));
+    if (collections.length) colBar.append(el('button', { class: 'chip', text: 'Manage…', onclick: () => manageCollectionsDialog() }));
+  }
+  host.append(colBar);
+  drawColBar();
+
+  function persistCollections() {
+    persist('gameCollections', true);
+    persist('games', true);
+  }
+
+  function newCollectionDialog(after) {
+    const name = el('input', { type: 'text', placeholder: 'Collection name, e.g. “Club games 2026”' });
+    modal({
+      title: 'New collection',
+      body: el('label', { class: 'field' }, el('span', { text: 'Name' }), name),
+      actions: [
+        { label: 'Cancel' },
+        {
+          label: 'Create', primary: true, onClick: () => {
+            const col = { id: uid('col'), name: name.value.trim() || 'Collection', created: Date.now() };
+            state.gameCollections.push(col);
+            persistCollections();
+            if (after) after(col);
+            else navigate('/coach');
+          },
+        },
+      ],
+    });
+  }
+
+  function manageCollectionsDialog() {
+    const body = el('div', { class: 'list' });
+    for (const c of collections) {
+      body.append(el('div', { class: 'list-item', style: 'cursor:default' },
+        el('div', { class: 't' }, el('span', { class: 'name', text: c.name }),
+          el('span', { class: 'sub', text: `${games.filter((g) => g.collection === c.id).length} game(s)` })),
+        el('button', {
+          class: 'btn sm', text: 'Rename', onclick: () => {
+            const name = el('input', { type: 'text', value: c.name });
+            modal({
+              title: 'Rename collection',
+              body: el('label', { class: 'field' }, el('span', { text: 'Name' }), name),
+              actions: [{ label: 'Cancel' }, {
+                label: 'Save', primary: true, onClick: () => {
+                  c.name = name.value.trim() || c.name;
+                  persistCollections();
+                  navigate('/coach');
+                },
+              }],
+            });
+          },
+        }),
+        el('button', {
+          class: 'btn sm ghost', text: 'Delete', onclick: async () => {
+            const n = games.filter((g) => g.collection === c.id).length;
+            const ok = await confirmDialog({
+              title: `Delete “${c.name}”?`,
+              text: `${n} game(s) stay in your library and become unfiled.`,
+              confirmLabel: 'Delete collection',
+            });
+            if (!ok) return;
+            state.gameCollections = collections.filter((x) => x.id !== c.id);
+            for (const g of state.games) if (g.collection === c.id) delete g.collection;
+            persistCollections();
+            navigate('/coach');
+          },
+        })));
+    }
+    modal({ title: 'Collections', body, actions: [{ label: 'Close' }] });
+  }
+
+  function gameMenu(g) {
+    const sel = el('select', {});
+    sel.append(el('option', { value: '', text: 'Unfiled' }));
+    for (const c of collections) sel.append(el('option', { value: c.id, text: c.name }));
+    sel.value = g.collection || '';
+    const m = modal({
+      title: `${g.white} – ${g.black}`,
+      body: el('div', {},
+        el('label', { class: 'field' }, el('span', { text: 'Collection' }), sel),
+        el('div', { class: 'row', style: 'gap:6px;margin-top:6px' },
+          el('button', { class: 'btn sm', html: `${icon('plus')} New collection…`, onclick: () => { m.close(); newCollectionDialog((col) => { g.collection = col.id; persistCollections(); navigate('/coach'); }); } }))),
+      actions: [
+        { label: 'Cancel' },
+        {
+          label: 'Delete game', danger: true, onClick: async () => {
+            const ok = await confirmDialog({ title: 'Remove this game?', text: 'It is removed from your library; the analysis goes with it.' });
+            if (!ok) return false;
+            state.games = state.games.filter((x) => x.id !== g.id);
+            delete state.analyses[g.id];
+            persist('games', true);
+            persist('analyses', true);
+            navigate('/coach');
+          },
+        },
+        {
+          label: 'Save', primary: true, onClick: () => {
+            if (sel.value) g.collection = sel.value; else delete g.collection;
+            persistCollections();
+            navigate('/coach');
+          },
+        },
+      ],
+    });
+  }
+
+  if (!games.length) {
+    host.append(el('div', { class: 'empty', style: 'margin-top:14px' },
+      'No games yet. Import a PGN above — or play a game against the engine and analyse it afterwards.'));
+    return { destroy() {} };
+  }
+
+  const visible = mine.filter(inCol);
   const list = el('div', { class: 'list game-list' });
   host.append(list);
-  for (const g of mine.slice().reverse()) {
+  for (const g of visible.slice().reverse()) {
     const analysed = state.analyses[g.id];
     list.append(el('div', { class: 'list-item', onclick: () => navigate('/coach/' + g.id) },
       el('div', { class: 't' },
         el('span', { class: 'name', text: `${g.white} – ${g.black}` }),
-        el('span', { class: 'sub', text: `${g.result || '*'} · ${g.moves.length} moves · ${g.event || 'no event'}${g.date ? ' · ' + g.date : ''}` })),
+        el('span', { class: 'sub', text: `${g.result || '*'} · ${g.moves.length} moves · ${g.event || 'no event'}${g.date ? ' · ' + g.date : ''}${colName(g.collection) ? ' · ' + colName(g.collection) : ''}` })),
       analysed ? el('span', { class: 'badge ' + (analysed.summary && analysed.summary.counts.blunder ? 'bad' : 'good'), text: `${analysed.summary ? analysed.summary.counts.blunder : 0} blunders` }) : el('span', { class: 'badge', text: 'not analysed' }),
+      el('button', { class: 'btn ghost sm icon', html: icon('dots'), title: 'Collection / delete', onclick: (e) => { e.stopPropagation(); gameMenu(g); } }),
       el('button', { class: 'btn sm primary', text: 'Review', onclick: (e) => { e.stopPropagation(); navigate('/coach/' + g.id); } })));
+  }
+  if (!visible.length) {
+    list.append(el('div', { class: 'empty', text: 'No games in this collection yet. Pick “Move to collection” from a game\u2019s ⋯ menu.' }));
   }
 
   function matchesUser(g, name) {

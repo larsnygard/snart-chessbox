@@ -95,10 +95,16 @@ the whole app (engine included) is cached by a service worker so it works on a p
   the "Continue where you left off" card on the home screen.
 
 **PGN database**
-- Import large collections (file or paste); games live in their own IndexedDB store, only
-  metadata is kept in memory, so search stays instant.
+- **Several named databases** with a switcher: create, rename, delete. Importing, searching
+  and clearing always act on the active one, so a TWIC dump and your own collection can live
+  side by side.
+- Import large collections (file, paste or **zip**); games live in their own IndexedDB store,
+  only metadata is kept in memory, so search stays instant.
+- **Backup / restore as a zip**: one click packs the database PGN plus a manifest; importing a
+  zip either feeds the active database or becomes a new one.
 - Filter by player(s), event, year range, result, ECO and minimum length; review a game,
-  send it to memory training, export the filtered set as PGN, or build a repertoire from it.
+  send it to memory training, export the filtered set as PGN, **copy the result set into a new
+  database**, or build a repertoire from it.
 
 **Game memory**
 - Study mode has a **move-arrow toggle** and **per-position notes**: comments and arrows you
@@ -110,6 +116,8 @@ the whole app (engine included) is cached by a service worker so it works on a p
   side's moves from memory, with an accuracy score per run.
 
 **Coaching on your own games**
+- **Collections**: group the games you import (club games, openings work, a match) — create,
+  rename, delete and filter; a game moves between collections from its ⋯ menu.
 - Import a PGN set, pick a game, and the engine reviews every position.
 - Accuracy, blunders/mistakes/inaccuracies, a clickable move table, **red arrows on your
   bad moves** with the engine's move in green.

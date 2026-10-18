@@ -15,6 +15,7 @@ export const state = {
   repertoires: [],
   sets: [],
   games: [],
+  gameCollections: [],
   memoryGames: [],
   progress: {},
   memoryNotes: {},
@@ -25,7 +26,7 @@ export const state = {
   lastRoute: 'home',
 };
 
-const PERSIST_KEYS = ['repertoires', 'sets', 'games', 'memoryGames', 'progress', 'memoryNotes', 'customPuzzles', 'analyses'];
+const PERSIST_KEYS = ['repertoires', 'sets', 'games', 'gameCollections', 'memoryGames', 'progress', 'memoryNotes', 'customPuzzles', 'analyses'];
 const saveTimers = {};
 
 export function persist(key, immediate = false) {

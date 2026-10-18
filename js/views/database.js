@@ -7,7 +7,12 @@
 
 import { state, navigate, persist } from '../app.js';
 import { el, icon, toast, modal, confirmDialog } from '../ui/components.js';
-import { importPGNText, searchGames, loadMeta, metaCached, getGame, deleteAllGames, exportPGN, toGameObjects, playerList, isImporting } from '../ui/pgndb.js';
+import {
+  importPGNText, searchGames, loadMeta, metaCached, getGame, deleteAllGames, exportPGN,
+  toGameObjects, playerList, isImporting, databases, createDatabase, renameDatabase,
+  deleteDatabase, setActiveDb, activeDbId, activeDb, exportDatabasePGN, exportDatabaseZip,
+  readDatabaseZip, createDatabaseFromRows, countInDb,
+} from '../ui/pgndb.js';
 import { fetchExampleDatabase } from '../ui/packs.js';
 import { buildFromGames, treeStats, emptyTree } from '../core/repertoire.js';
 import { uid } from '../core/sets.js';
@@ -19,25 +24,126 @@ export function render(host) {
   let offset = 0;
   const limit = 60;
 
+  const dbBar = el('div');
   const importCard = el('div', { class: 'card', style: 'margin-bottom:14px' });
   const filterCard = el('div', { class: 'card', style: 'margin-bottom:12px' });
   const resultBox = el('div');
-  host.append(importCard, filterCard, resultBox);
+  host.append(dbBar, importCard, filterCard, resultBox);
 
   const filters = { player: '', event: '', yearFrom: '', yearTo: '', result: '', eco: '', minPlies: '' };
 
+  drawDbBar();
   drawImport();
   drawFilters();
   runSearch(true);
+
+  // ---------------------------------------------------------------- which database
+  function drawDbBar() {
+    dbBar.innerHTML = '';
+    const active = activeDbId();
+    const sel = el('select', { style: 'max-width:280px', onchange: (e) => { setActiveDb(e.target.value).then(() => navigate('/database')); } });
+    dbBar.append(
+      el('div', { class: 'card', style: 'margin-bottom:12px' },
+        el('div', { class: 'row', style: 'gap:10px;flex-wrap:wrap' },
+          el('span', { class: 'faint', style: 'font-size:.8rem', text: 'Database' }),
+          el('div', { id: 'dbSelectHost', style: 'min-width:220px;flex:1;max-width:340px' }),
+          el('button', { class: 'btn sm', html: `${icon('plus')}<span>New database</span>`, onclick: () => newDbDialog() }),
+          el('button', { class: 'btn sm ghost', text: 'Rename', onclick: () => renameDbDialog() }),
+          el('button', { class: 'btn sm ghost', text: 'Delete', onclick: () => deleteDbDialog() }),
+          el('div', { class: 'spacer' }),
+          el('button', { class: 'btn sm', html: `${icon('download')}<span>Backup (.zip)</span>`, onclick: () => backupDbZip() }),
+          el('button', { class: 'btn sm ghost', text: 'Export PGN', onclick: () => downloadDbPgn() }))));
+    databases().then((list) => {
+      sel.innerHTML = '';
+      for (const d of list) sel.append(el('option', { value: d.id, text: `${d.name} — ${d.count} games` }));
+      sel.value = active;
+      const host = document.getElementById('dbSelectHost');
+      if (host) { host.innerHTML = ''; host.append(sel); }
+    }).catch(() => {});
+  }
+
+  function newDbDialog() {
+    const name = el('input', { type: 'text', placeholder: 'Database name, e.g. “TWIC 1666”' });
+    modal({
+      title: 'New database',
+      body: el('label', { class: 'field' }, el('span', { text: 'Name' }), name),
+      actions: [
+        { label: 'Cancel' },
+        { label: 'Create', primary: true, onClick: async () => {
+          await createDatabase(name.value.trim() || 'New database');
+          toast('Database created', 'ok');
+          navigate('/database');
+        } },
+      ],
+    });
+  }
+
+  function renameDbDialog() {
+    const active = activeDbId();
+    const current = metaCached().length >= 0 ? '' : '';
+    void current;
+    const name = el('input', { type: 'text', placeholder: 'New name' });
+    databases().then((list) => {
+      const db = list.find((d) => d.id === active);
+      if (db) name.value = db.name;
+    });
+    modal({
+      title: 'Rename database',
+      body: el('label', { class: 'field' }, el('span', { text: 'Name' }), name),
+      actions: [
+        { label: 'Cancel' },
+        { label: 'Rename', primary: true, onClick: async () => {
+          await renameDatabase(active, name.value.trim() || 'Database');
+          toast('Renamed', 'ok');
+          navigate('/database');
+        } },
+      ],
+    });
+  }
+
+  function deleteDbDialog() {
+    const active = activeDbId();
+    const n = countInDb(active);
+    modal({
+      title: 'Delete this database?',
+      body: el('p', { class: 'dim', text: `${n} game(s) will be removed. Other databases and your own games are untouched.` }),
+      actions: [
+        { label: 'Cancel' },
+        { label: 'Delete', danger: true, onClick: async () => {
+          try {
+            await deleteDatabase(active);
+            toast('Database deleted', 'ok');
+            navigate('/database');
+          } catch (e) { toast(String(e.message || e), 'bad'); }
+        } },
+      ],
+    });
+  }
+
+  async function backupDbZip() {
+    toast('Packing the database…', '');
+    const { zip, filename, count, name } = await exportDatabaseZip();
+    download(filename, zip, 'application/zip');
+    toast(`${count} games backed up (${name})`, 'ok');
+  }
+
+  async function downloadDbPgn() {
+    const { pgn, count, name } = await exportDatabasePGN();
+    download(`${exportName('chessbox-' + name.replace(/\W+/g, '-').slice(0, 30))}.pgn`, pgn, 'application/x-chess-pgn');
+    toast(`${count} games exported`, 'ok');
+  }
+
+
 
   // ---------------------------------------------------------------- import
   function drawImport() {
     importCard.innerHTML = '';
     const fileInput = el('input', { type: 'file', accept: '.pgn,.txt,text/plain', style: 'display:none' });
+    const zipInput = el('input', { type: 'file', accept: '.zip,application/zip', style: 'display:none' });
     const area = el('textarea', { placeholder: '…or paste PGN here (one game or a whole collection)', style: 'min-height:90px' });
     const info = el('div', { class: 'dim', style: 'font-size:.82rem' });
     const bar = el('div', { class: 'meter hidden', style: 'margin-top:8px' }, el('i', { style: 'width:0%' }));
-    const count = metaCached().length;
+    const count = countInDb(activeDbId());
 
     const doImport = async (text, source) => {
       if (!text || !text.trim()) { toast('Nothing to import', 'bad'); return; }
@@ -64,6 +170,18 @@ export function render(host) {
       }
     };
 
+    zipInput.addEventListener('change', async () => {
+      const f = zipInput.files && zipInput.files[0];
+      if (!f) return;
+      try {
+        const files = await readDatabaseZip(new Uint8Array(await f.arrayBuffer()));
+        importZipDialog(files, f.name);
+      } catch (e) {
+        toast('Could not read that zip: ' + (e.message || e), 'bad');
+      }
+      zipInput.value = '';
+    });
+
     fileInput.addEventListener('change', async () => {
       const f = fileInput.files && fileInput.files[0];
       if (!f) return;
@@ -80,17 +198,18 @@ export function render(host) {
         el('span', { class: 'badge', text: `${count} games` }),
         el('div', { class: 'spacer' }),
         count ? el('button', {
-          class: 'btn sm danger', text: 'Clear database',
+          class: 'btn sm danger', text: 'Clear this database',
           onclick: async () => {
-            if (await confirmDialog({ title: 'Delete the whole database?', text: `${count} imported games will be removed. Your own games and repertoires are untouched.` })) {
-              await deleteAllGames();
-              navigate('/database');
-            }
+          if (await confirmDialog({ title: 'Delete the games in this database?', text: `${countInDb(activeDbId())} games will be removed from the active database. Other databases, your own games and repertoires are untouched.` })) {
+            await deleteAllGames(activeDbId());
+            navigate('/database');
+          }
           },
         }) : null),
       el('p', { class: 'dim', style: 'font-size:.85rem;margin-top:0', html: 'Load a PGN collection once — master games, tournament bulletins, your own archive. Games are stripped to their moves and headers, stored locally, and searchable by player, event, year, result and ECO.' }),
       el('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' },
         el('button', { class: 'btn primary', html: `${icon('upload')}<span>Load PGN file…</span>`, onclick: () => fileInput.click() }),
+        el('button', { class: 'btn', html: `${icon('upload')}<span>Import .zip</span>`, title: 'A zip with one or more .pgn files', onclick: () => zipInput.click() }),
         el('span', { class: 'faint', style: 'font-size:.78rem', text: 'or paste below' })),
       el('div', { style: 'height:8px' }), area,
       el('div', { class: 'row', style: 'margin-top:8px' },
@@ -98,7 +217,53 @@ export function render(host) {
       el('div', { class: 'row', style: 'margin-top:12px;gap:10px;flex-wrap:wrap' },
         el('button', { class: 'btn', html: `${icon('database')}<span>Load bundled example database</span>`, onclick: loadExample }),
         el('span', { class: 'faint', style: 'font-size:.76rem', text: '9,834 master games (TWIC 1666 plus Rubinstein’s games) · ~2.4 MB, downloaded once' })),
-      info, bar, fileInput);
+      info, bar, fileInput, zipInput);
+
+    /** A zip can either feed the active database or become a new one. */
+    function importZipDialog(files, zipName) {
+      const total = files.reduce((n, f) => n + (f.text.match(/\[Event /g) || []).length, 0);
+      const base = String(zipName || 'import').replace(/\.zip$/i, '');
+      const target = el('select', {},
+        el('option', { value: 'new', text: `Create a new database (“${base}”)` }),
+        el('option', { value: 'active', text: `Add to the active database` }));
+      const name = el('input', { type: 'text', value: base, placeholder: 'New database name' });
+      modal({
+        title: 'Import zipped PGN',
+        body: el('div', {},
+          el('p', { class: 'dim', style: 'margin-top:0', text: `${files.length} file(s), ${total} game(s) inside ${zipName}.` }),
+          el('label', { class: 'field' }, el('span', { text: 'Where' }), target),
+          el('label', { class: 'field' }, el('span', { text: 'Name for the new database' }), name),
+          el('p', { class: 'faint', style: 'font-size:.78rem;margin:0', text: 'Duplicates (same players, year and moves) are skipped automatically.' })),
+        actions: [
+          { label: 'Cancel' },
+          {
+            label: 'Import', primary: true, onClick: async () => {
+              let dbId = activeDbId();
+              if (target.value === 'new') {
+                const created = await createDatabase(name.value.trim() || base);
+                dbId = created.id;
+                await setActiveDb(dbId);
+              }
+              info.textContent = 'Importing from zip…';
+              bar.classList.remove('hidden');
+              let added = 0, dupes = 0, skipped = 0;
+              for (const f of files) {
+                const res = await importPGNText(f.text, {
+                  source: zipName, dbId,
+                  onProgress: (done, all, a) => {
+                    bar.querySelector('i').style.width = `${all ? Math.round((done / all) * 100) : 0}%`;
+                    info.textContent = `${f.name}: ${done}/${all} · ${added + a} added`;
+                  },
+                });
+                added += res.added; dupes += res.duplicates; skipped += res.skipped;
+              }
+              toast(`Imported ${added} game(s)${dupes ? `, ${dupes} duplicates` : ''}`, 'ok');
+              navigate('/database');
+            },
+          },
+        ],
+      });
+    }
 
     async function loadExample() {
       if (isImporting()) { toast('An import is already running', 'bad'); return; }
@@ -158,7 +323,7 @@ export function render(host) {
 
     filterCard.append(
       el('div', { class: 'card-head' }, el('h3', { text: 'Search' }), el('div', { class: 'spacer' }),
-        el('span', { class: 'badge', text: `${metaCached().length} games in database` })),
+        el('span', { class: 'badge', text: `${countInDb(activeDbId())} games in this database` })),
       el('label', { class: 'field' }, el('span', { text: 'Players' }), playerInput, datalist),
       el('label', { class: 'field' }, el('span', { text: 'Event' }), eventInput),
       el('div', { class: 'split' },
@@ -193,6 +358,7 @@ export function render(host) {
       el('h3', { style: 'margin:0', text: `${total} game${total === 1 ? '' : 's'} found` }),
       el('div', { class: 'spacer' }),
       el('button', { class: 'btn sm', html: `${icon('star')}<span>Build repertoire from these</span>`, onclick: () => buildRepertoireDialog(), disabled: total === 0 || undefined }),
+      el('button', { class: 'btn sm', html: `${icon('plus')}<span>New database from these</span>`, title: 'Copy the full result set into its own database', onclick: () => newDbFromResults(), disabled: total === 0 || undefined }),
       el('button', { class: 'btn sm', html: `${icon('download')}<span>Export PGN</span>`, onclick: exportResults, disabled: total === 0 || undefined }));
     resultBox.append(head);
 
@@ -247,6 +413,48 @@ export function render(host) {
     });
     persist('memoryGames', true);
     toast('Added to game memory', 'ok');
+  }
+
+  async function newDbFromResults() {
+    const name = el('input', { type: 'text', value: filterSummary(), placeholder: 'Database name' });
+    modal({
+      title: 'New database from these results',
+      body: el('div', {},
+        el('p', { class: 'dim', style: 'margin-top:0', text: `Copies all ${total} matching game(s) into a new database. The current database is left as it is.` }),
+        el('label', { class: 'field' }, el('span', { text: 'Name' }), name)),
+      actions: [
+        { label: 'Cancel' },
+        {
+          label: 'Create', primary: true, onClick: async () => {
+            const all = await searchGames({ ...searchOpts(), limit: 200000, offset: 0 });
+            if (!all.games.length) { toast('Nothing to copy', 'bad'); return false; }
+            const { db, copied } = await createDatabaseFromRows(all.games, name.value.trim() || 'From search');
+            await setActiveDb(db.id);
+            toast(`Created “${db.name}” with ${copied} game(s)`, 'ok');
+            navigate('/database');
+          },
+        },
+      ],
+    });
+  }
+
+  /** The current filter set, in the shape searchGames expects. */
+  function searchOpts() {
+    return {
+      player: filters.player, event: filters.event,
+      yearFrom: Number(filters.yearFrom) || 0, yearTo: Number(filters.yearTo) || 9999,
+      result: filters.result, eco: filters.eco, minPlies: Number(filters.minPlies) || 0,
+    };
+  }
+
+  function filterSummary() {
+    const bits = [];
+    if (filters.player) bits.push(filters.player);
+    if (filters.event) bits.push(filters.event);
+    if (filters.yearFrom || filters.yearTo) bits.push(`${filters.yearFrom || ''}-${filters.yearTo || ''}`);
+    if (filters.result) bits.push(filters.result);
+    if (filters.eco) bits.push('ECO ' + filters.eco);
+    return bits.join(' ').slice(0, 40) || 'From search';
   }
 
   function exportResults() {

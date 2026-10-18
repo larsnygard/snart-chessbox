@@ -5,7 +5,7 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.7.0-beta.1';
+export const VERSION = '1.8.0-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
 export const BUILD = '2026-10-19';
 export const IS_BETA = CHANNEL === 'beta';
@@ -21,6 +21,17 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.8.0-beta.1',
+    date: '2026-10-19',
+    channel: 'beta',
+    notes: [
+      'PGN database: several named databases with a switcher, create/rename/delete; searching, importing and clearing all act on the active database only.',
+      'Backup and restore databases as a zip containing the PGN plus a manifest; import a zip into the active database or as a new one.',
+      'New database from the current search results in one click.',
+      'My games: collections — create, rename, delete, filter by collection, and move games between them.',
+    ],
+  },
   {
     version: '1.7.0-beta.1',
     date: '2026-10-19',
