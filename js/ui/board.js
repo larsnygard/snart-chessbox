@@ -363,10 +363,13 @@ export function createBoard(host, opts = {}) {
     setEngineArrows(arrows) { state.engineArrows = arrows || []; renderArrows(); },
     getArrows() { return state.arrows.slice(); },
     setOrientation(o) {
-      state.orientation = o === 'b' ? 'b' : 'w';
+      const next = o === 'b' ? 'b' : 'w';
+      const changed = next !== state.orientation;
+      state.orientation = next;
       state.selected = null;
       state.targets = [];
       rebuild();
+      if (changed && opts.onOrientation) opts.onOrientation(next);
     },
     setInteractive(v) { state.interactive = !!v; if (!v) clearSelection(); },
     isInteractive() { return state.interactive; },

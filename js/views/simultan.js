@@ -106,6 +106,7 @@ export function render(host) {
       games: Array.from({ length: cfg.boards }, (_, i) => makeGame(cfg, i)),
       focus: 0,
       finished: false,
+      flipped: new Set(), // board numbers the user flipped by hand
       started: Date.now(),
     };
     setupCard.classList.add('hidden');
@@ -158,6 +159,9 @@ export function render(host) {
     sessionBox.append(layout);
 
     const g = focused();
+    // boards are flipped by hand per board; programmatic orientation changes are
+    // ours and must not be mistaken for a user preference
+    let enforcingOrientation = false;
     board = createBoard(boardHost, {
       fen: g.fen,
       orientation: orientationFor(state.settings, g.userColor),
@@ -166,6 +170,7 @@ export function render(host) {
       coords: state.settings.coords,
       animate: state.settings.animate,
       onMove: (m) => onUserMove(m),
+      onOrientation: () => { if (!enforcingOrientation) session.flipped.add(focused().n); },
     });
     tools = createBoardTools(toolsRow, {
       board,
@@ -179,6 +184,14 @@ export function render(host) {
 
     function paint() {
       const g2 = focused();
+      // switching boards must re-orient: the board element is reused, and
+      // orientation otherwise keeps whatever the previous board used
+      const want = orientationFor(state.settings, g2.userColor);
+      if (!session.flipped.has(g2.n) && board.orientation !== want) {
+        enforcingOrientation = true;
+        board.setOrientation(want);
+        enforcingOrientation = false;
+      }
       board.setPosition(g2.fen, { last: g2.lastMove, arrows: [], clearSelection: true });
       const myTurn = !g2.result && turnOf(g2.fen) === g2.userColor;
       board.setInteractive(myTurn);

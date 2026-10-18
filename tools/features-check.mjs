@@ -56,6 +56,30 @@ await goto('/#/settings');
 await page.locator('label.check:has-text("White always at the bottom") input').uncheck();
 await page.waitForTimeout(300);
 
+// ---------------------------------------------------------------- simultan orientation per board
+await goto('/#/simultan');
+await page.locator('.chip:has-text("2 boards")').first().click();
+await page.locator('button:has-text("Start simultan")').first().click();
+await page.waitForTimeout(1800);
+const boards = await page.locator('.side-col .list .list-item').count();
+check('simultan: board 1 shows the user colour at the bottom (White)', (await topLeftSquare()) === 'a8', `${boards} boards, ${await topLeftSquare()}`);
+await page.locator('.side-col .list .list-item').nth(1).click();
+await page.waitForTimeout(600);
+check('simultan: black board flips to Black at the bottom', (await topLeftSquare()) === 'h1', await topLeftSquare());
+await page.locator('.side-col .list .list-item').nth(0).click();
+await page.waitForTimeout(600);
+check('simultan: switching back restores the white board', (await topLeftSquare()) === 'a8', await topLeftSquare());
+
+// a manual flip must survive engine repaints and board switches
+await page.locator('.board-tools button[title="Flip board"]').click();
+await page.waitForTimeout(400);
+const flipped = await topLeftSquare();
+await page.locator('.side-col .list .list-item').nth(1).click();
+await page.waitForTimeout(400);
+await page.locator('.side-col .list .list-item').nth(0).click();
+await page.waitForTimeout(600);
+check('simultan: a hand-flipped board keeps its orientation', flipped === 'h1' && (await topLeftSquare()) === 'h1', `${flipped} → ${await topLeftSquare()}`);
+
 // ---------------------------------------------------------------- no scroll while playing
 await page.setViewportSize({ width: 390, height: 700 });
 await goto('/#/endgames/kqk-1');
