@@ -5,9 +5,9 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.10.0-beta.1';
+export const VERSION = '1.10.1-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
-export const BUILD = '2026-10-19';
+export const BUILD = '2026-10-20';
 export const IS_BETA = CHANNEL === 'beta';
 
 export const BETA_NOTICE = 'Beta release: features, storage formats and export files may change between versions. Export a backup before updating.';
@@ -21,6 +21,15 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.10.1-beta.1',
+    date: '2026-10-20',
+    channel: 'beta',
+    notes: [
+      'New app icon: a white toolbox holding a gold king with a knight and a rook. Traced to vector, so it stays crisp at every size — and the file is 9.8 kB instead of a raster image.',
+      'Install it again (or update it) to see the new icon on your home screen; browsers keep the old artwork until the app updates.',
+    ],
+  },
   {
     version: '1.10.0-beta.1',
     date: '2026-10-19',
