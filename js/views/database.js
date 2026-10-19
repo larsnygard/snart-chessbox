@@ -30,7 +30,7 @@ export function render(host) {
   const resultBox = el('div');
   host.append(dbBar, importCard, filterCard, resultBox);
 
-  const filters = { player: '', event: '', yearFrom: '', yearTo: '', result: '', eco: '', minPlies: '' };
+  const filters = { player: '', whitePlayer: '', blackPlayer: '', event: '', yearFrom: '', yearTo: '', result: '', eco: '', minPlies: '' };
 
   drawDbBar();
   drawImport();
@@ -309,6 +309,8 @@ export function render(host) {
     const datalist = el('datalist', { id: 'db-players' });
     for (const p of players) datalist.append(el('option', { value: p.name }));
 
+    const whiteInput = el('input', { type: 'search', list: 'db-players', placeholder: 'White player contains…', value: filters.whitePlayer, oninput: (e) => { filters.whitePlayer = e.target.value; } });
+    const blackInput = el('input', { type: 'search', list: 'db-players', placeholder: 'Black player contains…', value: filters.blackPlayer, oninput: (e) => { filters.blackPlayer = e.target.value; } });
     const eventInput = el('input', { type: 'text', placeholder: 'Event contains…', value: filters.event, oninput: (e) => { filters.event = e.target.value; } });
     const fromInput = el('input', { type: 'number', placeholder: 'from', value: filters.yearFrom, oninput: (e) => { filters.yearFrom = e.target.value; } });
     const toInput = el('input', { type: 'number', placeholder: 'to', value: filters.yearTo, oninput: (e) => { filters.yearTo = e.target.value; } });
@@ -324,7 +326,10 @@ export function render(host) {
     filterCard.append(
       el('div', { class: 'card-head' }, el('h3', { text: 'Search' }), el('div', { class: 'spacer' }),
         el('span', { class: 'badge', text: `${countInDb(activeDbId())} games in this database` })),
-      el('label', { class: 'field' }, el('span', { text: 'Players' }), playerInput, datalist),
+      el('label', { class: 'field' }, el('span', { text: 'Any player (either colour)' }), playerInput, datalist),
+      el('div', { class: 'split' },
+        el('label', { class: 'field' }, el('span', { text: 'White player' }), whiteInput),
+        el('label', { class: 'field' }, el('span', { text: 'Black player' }), blackInput)),
       el('label', { class: 'field' }, el('span', { text: 'Event' }), eventInput),
       el('div', { class: 'split' },
         el('label', { class: 'field' }, el('span', { text: 'Year from' }), fromInput),
@@ -341,7 +346,7 @@ export function render(host) {
   async function runSearch(reset) {
     if (reset) { offset = 0; results = []; }
     const res = await searchGames({
-      player: filters.player, event: filters.event,
+      player: filters.player, whitePlayer: filters.whitePlayer, blackPlayer: filters.blackPlayer, event: filters.event,
       yearFrom: Number(filters.yearFrom) || 0, yearTo: Number(filters.yearTo) || 9999,
       result: filters.result, eco: filters.eco, minPlies: Number(filters.minPlies) || 0,
       limit, offset,
@@ -441,7 +446,7 @@ export function render(host) {
   /** The current filter set, in the shape searchGames expects. */
   function searchOpts() {
     return {
-      player: filters.player, event: filters.event,
+      player: filters.player, whitePlayer: filters.whitePlayer, blackPlayer: filters.blackPlayer, event: filters.event,
       yearFrom: Number(filters.yearFrom) || 0, yearTo: Number(filters.yearTo) || 9999,
       result: filters.result, eco: filters.eco, minPlies: Number(filters.minPlies) || 0,
     };
@@ -450,6 +455,8 @@ export function render(host) {
   function filterSummary() {
     const bits = [];
     if (filters.player) bits.push(filters.player);
+    if (filters.whitePlayer) bits.push('white: ' + filters.whitePlayer);
+    if (filters.blackPlayer) bits.push('black: ' + filters.blackPlayer);
     if (filters.event) bits.push(filters.event);
     if (filters.yearFrom || filters.yearTo) bits.push(`${filters.yearFrom || ''}-${filters.yearTo || ''}`);
     if (filters.result) bits.push(filters.result);

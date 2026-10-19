@@ -5,7 +5,7 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.9.0-beta.1';
+export const VERSION = '1.10.0-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
 export const BUILD = '2026-10-19';
 export const IS_BETA = CHANNEL === 'beta';
@@ -21,6 +21,16 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.10.0-beta.1',
+    date: '2026-10-19',
+    channel: 'beta',
+    notes: [
+      'Play is a first-class menu item: opening it offers the new-game dialog (colour, time control, engine strength, which repertoires the engine may use as a book, optional start position), and resumes an unfinished game instead if there is one.',
+      'Database search can filter White and Black players separately (the existing “any player” box still matches either side).',
+      'About gains a Support section: Ko-fi for the app, and links to Lichess (the openings and puzzles) and The Week in Chess (the example database). Entirely voluntary.',
+    ],
+  },
   {
     version: '1.9.0-beta.1',
     date: '2026-10-19',

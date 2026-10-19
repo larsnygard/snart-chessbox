@@ -75,6 +75,8 @@ the whole app (engine included) is cached by a service worker so it works on a p
 - Score card (wins 1, draws ½), per-board status, resign, new exhibition.
 
 **Play vs engine (with your own opening book)**
+- **Play is a menu entry of its own**; opening it offers the new-game dialog, or resumes the
+  game you left unfinished.
 - **New game dialog**: colour, time control (none, 3+0, 5+0, 5+3, 10+0, 15+10, 30+0),
   engine strength, which repertoires the engine may use as a book, and an optional starting FEN.
 - **Clocks**: your clock ticks while it is your move and the engine's clock is charged its
@@ -102,7 +104,8 @@ the whole app (engine included) is cached by a service worker so it works on a p
   only metadata is kept in memory, so search stays instant.
 - **Backup / restore as a zip**: one click packs the database PGN plus a manifest; importing a
   zip either feeds the active database or becomes a new one.
-- Filter by player(s), event, year range, result, ECO and minimum length; review a game,
+- Filter by **White player and Black player separately** (or either side at once), plus event,
+  year range, result, ECO and minimum length; review a game,
   send it to memory training, export the filtered set as PGN, **copy the result set into a new
   database**, or build a repertoire from it.
 
@@ -288,6 +291,11 @@ fails if the precache list, the page's asset list and the disk disagree.
 
 The engine is loaded as a separate GPL-3.0 work; the app communicates with it over the UCI
 message protocol, which the AGPL does not relicense.
+
+**Support is optional.** The app is free and stays free; if you want to give something back,
+the in-app *About → Support* section points at [Ko-fi](https://ko-fi.com/larsnygard) for the
+app itself, [Lichess](https://lichess.org/patron) for the openings and puzzles it uses, and
+[The Week in Chess](https://theweekinchess.com/) for the example master database.
 
 ---
 

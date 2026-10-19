@@ -184,11 +184,15 @@ export async function importPGNText(text, { source = '', dbId = null, onProgress
 export async function searchGames(opts = {}) {
   const all = await loadMeta();
   const {
-    dbId = null, player = '', event = '', yearFrom = 0, yearTo = 9999, result = '', eco = '',
+    dbId = null, player = '', whitePlayer = '', blackPlayer = '',
+    event = '', yearFrom = 0, yearTo = 9999, result = '', eco = '',
     minPlies = 0, limit = 100, offset = 0, sort = 'year',
   } = opts;
   const target = dbId || activeDbId();
-  const terms = String(player).toLowerCase().split(/[,;]/).map((t) => t.trim()).filter(Boolean);
+  const split = (v) => String(v || '').toLowerCase().split(/[,;]/).map((t) => t.trim()).filter(Boolean);
+  const terms = split(player);
+  const wTerms = split(whitePlayer);
+  const bTerms = split(blackPlayer);
   const ev = String(event).toLowerCase().trim();
   const filtered = all.filter((m) => {
     if (dbOf(m) !== target) return false;
@@ -196,6 +200,8 @@ export async function searchGames(opts = {}) {
       const hit = terms.some((t) => m.whiteLower.includes(t) || m.blackLower.includes(t));
       if (!hit) return false;
     }
+    if (wTerms.length && !wTerms.some((t) => (m.whiteLower || '').includes(t))) return false;
+    if (bTerms.length && !bTerms.some((t) => (m.blackLower || '').includes(t))) return false;
     if (ev && !(m.eventLower || '').includes(ev)) return false;
     if (m.year < yearFrom || m.year > yearTo) return false;
     if (result && m.result !== result) return false;

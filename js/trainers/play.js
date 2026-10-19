@@ -736,7 +736,8 @@ export function mountPlay(host, ctx, opts = {}) {
     }, `Play vs engine — ${Math.ceil(path.length / 2)} moves`, '#/coach?fen=start');
   }
 
-  if (resume && resume.path && resume.path.length && resume.startFen === cfg.startFen && resume.side === cfg.side) {
+  const restored = !!(resume && resume.path && resume.path.length && resume.startFen === cfg.startFen && resume.side === cfg.side);
+  if (restored) {
     if (resume.tree) tree = resume.tree;
     path = resume.path.slice();
     cursor = Math.min(resume.cursor ?? path.length, path.length);
@@ -756,6 +757,7 @@ export function mountPlay(host, ctx, opts = {}) {
   // ---------------------------------------------------------------- boot
   paint();
   startClock();
+  if (opts.openNewGame && !restored && !path.length) setTimeout(() => newGameDialog(), 200);
   if (!path.length && turnOf(fenAt(0)) !== side) engineTurn();
   else if (path.length && live() && turnOf(fenAt(cursor)) !== side) engineTurn();
 

@@ -66,6 +66,30 @@ export function render(host) {
       el('button', { class: 'btn sm ghost', text: 'Open settings', onclick: () => navigate('/settings') })),
     el('div', { class: 'stack', style: 'gap:2px;margin-top:10px' }, storageLine, cacheLine)));
 
+  // ---- support (optional)
+  const supportRow = (href, title, detail, cta) => el('a', {
+    class: 'list-item', href, target: '_blank', rel: 'noopener', style: 'text-decoration:none',
+  },
+    el('div', { class: 't' },
+      el('span', { class: 'name', text: title }),
+      el('span', { class: 'sub', text: detail })),
+    el('span', { class: 'badge', text: cta }));
+
+  page.append(el('div', { class: 'card', style: 'margin-bottom:14px' },
+    el('div', { class: 'card-head' },
+      el('h2', { text: 'Support' }),
+      el('div', { class: 'spacer' }),
+      el('span', { class: 'badge', text: 'entirely voluntary' })),
+    el('p', { class: 'dim', style: 'font-size:.86rem;margin-top:0', html:
+      `SnartChessBox is free and open source (AGPL-3.0) and stays free. If you would like to support the work — the app, or the free chess community this app is built on — these are the places that make a difference. Nothing here is required, and nothing is tracked.` }),
+    el('div', { class: 'list' },
+      supportRow('https://ko-fi.com/larsnygard', 'Buy me a coffee — Ko-fi',
+        'One-off or monthly support for SnartChessBox itself.', 'ko-fi.com/larsnygard'),
+      supportRow('https://lichess.org/patron', 'Lichess',
+        'The openings database and every puzzle in this app come from Lichess. Patron subscriptions keep it ad-free and open.', 'lichess.org/patron'),
+      supportRow('https://theweekinchess.com/', 'The Week in Chess (TWIC)',
+        'Mark Crowther has published weekly master game files since 1994 — the source of the example database. Donations are accepted through the site.', 'theweekinchess.com'))));
+
   // ---- licences
   page.append(el('div', { class: 'card', style: 'margin-bottom:14px' },
     el('h2', { text: 'Licences & credits' }),

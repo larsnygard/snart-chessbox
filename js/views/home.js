@@ -107,7 +107,7 @@ export function render(host) {
         const o = pool[Math.floor(Math.random() * pool.length)];
         navigate('/openings/' + encodeURIComponent(o.id) + '?side=' + (Math.random() < 0.5 ? 'w' : 'b'));
       }),
-      jumpCard('Play the engine', 'Fat Fritz-free sparring at your settings', 'game', () => navigate('/coach?play=1')),
+      jumpCard('Play the engine', 'Sparring against your own repertoire book', 'game', () => navigate('/play')),
       jumpCard('Memory quiz', 'Reproduce a famous game from memory', 'brain', () => {
         const games = state.memoryGames.concat(data.famousGames());
         if (!games.length) return navigate('/memory');

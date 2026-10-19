@@ -67,10 +67,35 @@ await goto('/#/home');
 const bannerAfter = await page.locator('.card:has-text("Beta build")').count();
 check('the beta notice can be dismissed and stays dismissed', bannerAfter === 0, `${bannerAfter} banner(s)`);
 await goto('/#/about');
+const supportLinks = await page.locator('.content a[href*="ko-fi"], .content a[href*="lichess"], .content a[href*="theweekinchess"]').evaluateAll((els) => els.map((e) => e.href));
+check('About has a support section with Ko-fi, Lichess and TWIC',
+  supportLinks.some((h) => h.includes('ko-fi.com/larsnygard')) && supportLinks.some((h) => h.includes('lichess.org')) && supportLinks.some((h) => h.includes('theweekinchess')),
+  supportLinks.join(' '));
 const aboutBody = await page.locator('.content').first().textContent().catch(() => '');
 check('about page states the version, beta status and release notes',
   /v1\.\d+\.\d+-beta/.test(aboutBody || '') && /this is a beta release/i.test(aboutBody || '') && /Licences/.test(aboutBody || ''),
   (aboutBody || '').replace(/\s+/g, ' ').slice(0, 60));
+
+// ---------------------------------------------------------------- Play is a menu item
+await goto('/#/home');
+await page.waitForTimeout(500);
+const playNav = await page.locator('#sidenav .nav-item[data-nav="play"]').count();
+check('Play is in the menu', playNav === 1);
+await page.locator('#sidenav .nav-item[data-nav="play"]').click();
+await page.waitForTimeout(1200);
+const playDialog = await page.locator('.modal:has-text("New game")').count();
+const playBoard = await page.locator('.board').count();
+check('Play offers the new-game dialog (or resumes a game)', playDialog === 1 || playBoard === 1,
+  playDialog ? 'dialog shown' : 'board shown');
+if (!playDialog) {
+  await page.locator('button:has-text("New game")').first().click();
+  await page.waitForTimeout(500);
+}
+const ngOptions = await page.locator('.modal').first().textContent().catch(() => '');
+check('the new-game dialog covers colour, clock, strength and book',
+  /Colour/.test(ngOptions || '') && /Time control/.test(ngOptions || '') && /Engine strength/.test(ngOptions || '') && /book/i.test(ngOptions || ''),
+  (ngOptions || '').replace(/\s+/g, ' ').slice(0, 60));
+await page.keyboard.press('Escape');
 
 // ---------------------------------------------------------------- menu reordering
 await goto('/#/home');
@@ -109,7 +134,7 @@ await page.locator('button:has-text("Reset menu order")').click();
 await page.waitForTimeout(700);
 await goto('/#/home');
 const afterReset = await navIds();
-check('the menu order can be reset to the default', afterReset[0] === 'home' && afterReset[1] === 'openings',
+check('the menu order can be reset to the default', afterReset[0] === 'home' && afterReset[1] === 'play' && afterReset[2] === 'openings',
   afterReset.slice(0, 3).join(','));
 
 // ---------------------------------------------------------------- simultan orientation per board
@@ -450,6 +475,23 @@ await page.locator('button:has-text("Search")').click();
 await page.waitForTimeout(700);
 const found = await page.locator('.list-item .sub').count();
 check('database searches by player name', found === 2, `${found} games`);
+
+// separate White / Black player filters
+await page.locator('input[placeholder*="Player name"]').fill('');
+await page.locator('input[placeholder*="White player"]').fill('Karpov');
+await page.locator('button:has-text("Search")').click();
+await page.waitForTimeout(600);
+const asWhite = await page.locator('.list-item .sub').count();
+check('database filters by the White player', asWhite === 1, `${asWhite} games with Karpov as White`);
+await page.locator('input[placeholder*="Black player"]').fill('Kasparov');
+await page.locator('button:has-text("Search")').click();
+await page.waitForTimeout(600);
+const bothSides = await page.locator('.list-item .sub').count();
+check('White and Black player filters combine', bothSides === 1, `${bothSides} game(s) Karpov (W) vs Kasparov (B)`);
+await page.locator('input[placeholder*="White player"]').fill('');
+await page.locator('input[placeholder*="Black player"]').fill('');
+await page.locator('button:has-text("Search")').click();
+await page.waitForTimeout(500);
 const exportBtn = await page.locator('button:has-text("Export PGN")').count();
 check('database can export the filtered games', exportBtn >= 1);
 const exampleBtn = await page.locator('button:has-text("Load bundled example database")').count();
