@@ -153,20 +153,106 @@ function markNav(name) {
   }
 }
 
+/** The menu in the user's order; unknown/new entries keep their default place. */
+export function orderedNav() {
+  const saved = (state.settings.navOrder || []).filter((id) => NAV.some((n) => n.id === id));
+  const rest = NAV.filter((n) => !saved.includes(n.id));
+  return saved.map((id) => NAV.find((n) => n.id === id)).concat(rest);
+}
+
+let navSuppressClick = false;
+
+function moveNavItem(id, delta) {
+  const order = orderedNav().map((n) => n.id);
+  const i = order.indexOf(id);
+  const j = i + delta;
+  if (i < 0 || j < 0 || j >= order.length) return false;
+  [order[i], order[j]] = [order[j], order[i]];
+  state.settings.navOrder = order;
+  saveSettings();
+  buildChrome();
+  const again = document.querySelector(`#sidenav .nav-item[data-nav="${id}"]`);
+  if (again) again.focus();
+  return true;
+}
+
+/** Drag (or Alt+↑/↓) reorders the sidebar; the order is saved in settings. */
+function installNavDrag(container) {
+  let drag = null;
+  const items = () => [...container.querySelectorAll('.nav-item')];
+
+  container.addEventListener('pointerdown', (e) => {
+    const item = e.target.closest('.nav-item');
+    if (!item || (e.button !== undefined && e.button !== 0)) return;
+    drag = { item, startY: e.clientY, dragging: false, pointerId: e.pointerId };
+    try { item.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  });
+
+  container.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    if (!drag.dragging && Math.abs(e.clientY - drag.startY) > 6) {
+      drag.dragging = true;
+      drag.item.classList.add('dragging');
+      container.classList.add('nav-reordering');
+    }
+    if (!drag.dragging) return;
+    const over = items().find((node) => {
+      const r = node.getBoundingClientRect();
+      return e.clientY >= r.top && e.clientY <= r.bottom;
+    });
+    if (over && over !== drag.item) {
+      const r = over.getBoundingClientRect();
+      container.insertBefore(drag.item, e.clientY < r.top + r.height / 2 ? over : over.nextSibling);
+    }
+    e.preventDefault();
+  });
+
+  const finish = () => {
+    if (!drag) return;
+    const moved = drag.dragging;
+    drag.item.classList.remove('dragging');
+    container.classList.remove('nav-reordering');
+    drag = null;
+    if (!moved) return;
+    navSuppressClick = true;
+    setTimeout(() => { navSuppressClick = false; }, 80);
+    state.settings.navOrder = items().map((node) => node.dataset.nav);
+    saveSettings();
+    buildChrome();
+    toast('Menu order saved', 'ok');
+  };
+  container.addEventListener('pointerup', finish);
+  container.addEventListener('pointercancel', finish);
+}
+
+export function refreshChrome() { buildChrome(); }
+
 function buildChrome() {
   const sidenav = document.getElementById('sidenav');
   sidenav.innerHTML = '';
-  for (const n of NAV) {
+  for (const n of orderedNav()) {
     const b = el('button', {
-      class: 'nav-item', dataset: { nav: n.id }, html: `${icon(n.icon)}<span>${n.label}</span>`,
-      onclick: () => navigate('/' + n.id),
+      class: 'nav-item', dataset: { nav: n.id },
+      title: `${n.label} — drag to reorder (Alt+↑/↓)`,
+      html: `<span class="grip" aria-hidden="true">⠿</span>${icon(n.icon)}<span class="nav-label">${n.label}</span>`,
+      onclick: () => { if (!navSuppressClick) navigate('/' + n.id); },
+      onkeydown: (e) => {
+        if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+          e.preventDefault();
+          moveNavItem(n.id, e.key === 'ArrowUp' ? -1 : 1);
+        }
+      },
     });
     sidenav.append(b);
+  }
+  if (!sidenav.dataset.drag) {
+    installNavDrag(sidenav);
+    sidenav.dataset.drag = '1';
   }
   const bottom = document.getElementById('bottomnav');
   bottom.innerHTML = '';
   for (const id of MOBILE_NAV) {
-    const n = NAV.find((x) => x.id === id);
+    const n = NAV.find((x) => x.id === id); // fixed four, independent of the custom order
     bottom.append(el('button', {
       dataset: { nav: id }, html: `${icon(n.icon)}<span>${n.label}</span>`,
       onclick: () => navigate('/' + id),
@@ -174,16 +260,10 @@ function buildChrome() {
   }
   bottom.append(el('button', {
     dataset: { nav: 'more' }, html: `${icon('dots')}<span>More</span>`,
-    onclick: () => import('./ui/components.js').then(({ sheet }) => sheet('More', [
-      { icon: 'simultan', label: 'Simultan', onClick: () => navigate('/simultan') },
-      { icon: 'brain', label: 'Game memory', onClick: () => navigate('/memory') },
-      { icon: 'game', label: 'My games (coaching)', onClick: () => navigate('/coach') },
-      { icon: 'database', label: 'PGN database', onClick: () => navigate('/database') },
-      { icon: 'star', label: 'Repertoire', onClick: () => navigate('/repertoire') },
-      { icon: 'layers', label: 'Exercise sets', onClick: () => navigate('/sets') },
-      { icon: 'settings', label: 'Settings', onClick: () => navigate('/settings') },
-      { icon: 'info', label: 'About', onClick: () => navigate('/about') },
-    ])),
+    onclick: () => import('./ui/components.js').then(({ sheet }) => sheet('More',
+      orderedNav()
+        .filter((n) => !MOBILE_NAV.includes(n.id))
+        .map((n) => ({ icon: n.icon, label: n.label, onClick: () => navigate('/' + n.id) })))),
   }));
 
   const buildInfo = document.getElementById('buildInfo');

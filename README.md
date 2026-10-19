@@ -137,6 +137,11 @@ the whole app (engine included) is cached by a service worker so it works on a p
   pick the arrow colour the same way.
 - Annotations belong to the position: they clear when a move is played, and **Esc** clears them.
 
+**Menu**
+- Rearrange the sidebar by dragging: entries reorder live and the order is saved in settings
+  (so it travels with a backup). Keyboard: focus an entry and press `Alt`+`↑`/`↓`.
+  *Settings → Menu* resets it; the phone "More" sheet follows the same order.
+
 **Board behaviour**
 - The side you play is at the bottom by default; *Settings → White always at the bottom* flips
   that rule for good.

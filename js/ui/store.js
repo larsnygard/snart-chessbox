@@ -42,6 +42,7 @@ export const DEFAULT_SETTINGS = {
   reviewDepthMs: 150,
   memoryArrows: true,      // memory study: arrow for the move that was played
   memoryComments: true,    // memory study: show PGN/user comments
+  navOrder: [],            // [] = the default menu order; set by dragging the sidebar
   pgnMaxGames: 300,
 };
 

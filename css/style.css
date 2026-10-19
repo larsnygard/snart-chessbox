@@ -87,6 +87,14 @@ small, .dim { color: var(--text-dim); }
   text-align: left; width: 100%; font-size: 0.94rem;
 }
 .nav-item:hover { background: #1a2130; color: var(--text); }
+.nav-item { user-select: none; }
+.nav-item .grip { width: 10px; margin-left: -4px; font-size: 13px; line-height: 1; color: var(--text-faint);
+  opacity: 0; cursor: grab; transition: opacity .12s; }
+.nav-item:hover .grip, .nav-item:focus-visible .grip { opacity: .55; }
+.nav-item.dragging { opacity: .8; background: #232c3b; border-color: var(--border);
+  box-shadow: var(--shadow); cursor: grabbing; }
+.nav-reordering .nav-item { cursor: grabbing; }
+.nav-item:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
 .nav-item.active { background: var(--accent-soft); color: #d8fff2; border-color: rgba(55,185,138,0.28); }
 .nav-item .ico { width: 20px; height: 20px; flex: 0 0 20px; opacity: 0.9; }
 .nav-sep { height: 1px; background: var(--border-soft); margin: 10px 8px; }

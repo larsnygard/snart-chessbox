@@ -185,6 +185,29 @@ export function render(host) {
   }
   preview();
 
+  // ---------------------------------------------------------------- menu order
+  const orderInfo = el('span', { class: 'faint', style: 'font-size:.78rem' });
+  const paintOrder = () => {
+    const n = (state.settings.navOrder || []).length;
+    orderInfo.textContent = n ? 'Custom order saved.' : 'Default order.';
+  };
+  paintOrder();
+  host.append(el('div', { class: 'card', style: 'margin-bottom:14px' },
+    el('div', { class: 'card-head' }, el('h3', { text: 'Menu' }), el('div', { class: 'spacer' }), orderInfo),
+    el('p', { class: 'dim', style: 'font-size:.84rem;margin-top:0', html: 'Drag the items in the sidebar to reorder them (or focus one and press <span class="kbd">Alt</span> + <span class="kbd">↑</span>/<span class="kbd">↓</span>). The order is part of your settings, so it travels with a backup.' }),
+    el('div', { class: 'row' },
+      el('button', {
+        class: 'btn sm', text: 'Reset menu order',
+        onclick: async () => {
+          state.settings.navOrder = [];
+          saveSettings();
+          const { refreshChrome } = await import('../app.js');
+          refreshChrome();
+          paintOrder();
+          toast('Menu order reset', 'ok');
+        },
+      }))));
+
   // ---------------------------------------------------------------- sound
   const vol = el('input', { type: 'range', min: '0', max: '1', step: '0.05', value: String(s.volume) });
   vol.addEventListener('input', () => { s.volume = Number(vol.value); sound.configure({ vol: s.volume }); save(); });

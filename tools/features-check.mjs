@@ -72,6 +72,46 @@ check('about page states the version, beta status and release notes',
   /v1\.\d+\.\d+-beta/.test(aboutBody || '') && /this is a beta release/i.test(aboutBody || '') && /Licences/.test(aboutBody || ''),
   (aboutBody || '').replace(/\s+/g, ' ').slice(0, 60));
 
+// ---------------------------------------------------------------- menu reordering
+await goto('/#/home');
+await page.waitForTimeout(600);
+const navIds = () => page.locator('#sidenav .nav-item').evaluateAll((els) => els.map((e) => e.dataset.nav));
+const grips = await page.locator('#sidenav .nav-item .grip').count();
+check('menu items show a drag grip', grips >= 10, `${grips} grips`);
+const navBefore = await navIds();
+await page.locator('#sidenav .nav-item').first().focus();
+await page.keyboard.down('Alt');
+await page.keyboard.press('ArrowDown');
+await page.keyboard.up('Alt');
+await page.waitForTimeout(500);
+const afterKey = await navIds();
+check('Alt+↓ moves a menu item down', afterKey[0] === navBefore[1] && afterKey[1] === navBefore[0],
+  `${navBefore.slice(0, 3).join(',')} → ${afterKey.slice(0, 3).join(',')}`);
+await goto('/#/home');
+const afterReload = await navIds();
+check('the menu order survives a reload', afterReload[0] === afterKey[0] && afterReload[1] === afterKey[1],
+  afterReload.slice(0, 3).join(','));
+
+const items = page.locator('#sidenav .nav-item');
+const srcBox = await items.nth(2).boundingBox();
+const dragTarget = await items.nth(0).boundingBox();
+const dragId = await items.nth(2).getAttribute('data-nav');
+await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+await page.mouse.down();
+await page.mouse.move(dragTarget.x + dragTarget.width / 2, dragTarget.y + 3, { steps: 10 });
+await page.mouse.up();
+await page.waitForTimeout(600);
+const afterDrag = await navIds();
+check('dragging an item reorders the menu', afterDrag[0] === dragId, `${dragId} → ${afterDrag.slice(0, 3).join(',')}`);
+
+await goto('/#/settings');
+await page.locator('button:has-text("Reset menu order")').click();
+await page.waitForTimeout(700);
+await goto('/#/home');
+const afterReset = await navIds();
+check('the menu order can be reset to the default', afterReset[0] === 'home' && afterReset[1] === 'openings',
+  afterReset.slice(0, 3).join(','));
+
 // ---------------------------------------------------------------- simultan orientation per board
 await goto('/#/simultan');
 await page.locator('.chip:has-text("2 boards")').first().click();

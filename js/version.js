@@ -5,7 +5,7 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.8.0-beta.1';
+export const VERSION = '1.9.0-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
 export const BUILD = '2026-10-19';
 export const IS_BETA = CHANNEL === 'beta';
@@ -21,6 +21,15 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.9.0-beta.1',
+    date: '2026-10-19',
+    channel: 'beta',
+    notes: [
+      'The menu can be rearranged by dragging items in the sidebar (or focus one and press Alt+↑/↓). The order is saved in settings, follows your backups, and the mobile “More” sheet uses it too.',
+      'Settings → Menu resets the order to the default.',
+    ],
+  },
   {
     version: '1.8.0-beta.1',
     date: '2026-10-19',
