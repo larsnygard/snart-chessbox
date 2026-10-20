@@ -418,6 +418,22 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   font-size: .74rem; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .em-row:hover .em-line, .em-row:focus-visible .em-line, .em-row.pinned .em-line { display: block; }
 
+/* ---------- position editor (Analyse → Set up) ---------- */
+.setup-board { cursor: pointer; }
+.sq.sel { box-shadow: inset 0 0 0 3px var(--accent); }
+.setup-palette { display: flex; flex-wrap: wrap; gap: 6px; }
+.setup-tool { width: 42px; height: 42px; display: grid; place-items: center; padding: 5px; cursor: pointer;
+  background: var(--panel-2); border: 2px solid var(--border-soft); border-radius: 9px; color: var(--text); }
+.setup-tool:hover { border-color: var(--border); }
+.setup-tool.on { border-color: var(--accent); background: var(--accent-soft); }
+.setup-tool svg { width: 100%; height: 100%; }
+.setup-tool .sw { display: block; width: 100%; height: 100%; }
+.setup-tool .sw[data-color="w"] { color: var(--piece-white); }
+.setup-tool .sw[data-color="b"] { color: var(--piece-black); }
+.setup-tool-txt { font-size: .7rem; font-weight: 600; line-height: 1; display: grid; place-items: center; }
+.setup-tool-txt svg { width: 16px; height: 16px; }
+.setup-messages .feedback { font-size: .82rem; }
+
 /* ---------- move tree list ---------- */
 .mtree { overflow-anchor: none; display: flex; flex-direction: column; gap: 1px; font-family: var(--mono);
   font-size: .84rem; max-height: 340px; overflow-y: auto; padding-right: 4px; }

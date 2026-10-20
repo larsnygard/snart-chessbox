@@ -39,6 +39,33 @@ await desktop.waitForTimeout(900);
 await desktop.screenshot({ path: OUT + 'desktop-analyse.png' });
 console.log('wrote desktop-analyse.png');
 
+// the position editor: a half-built position with the palette in use
+await desktop.goto('about:blank');
+await desktop.goto(BASE + '#/analyse', { waitUntil: 'domcontentloaded' });
+await desktop.waitForFunction(() => !document.getElementById('boot'), null, { timeout: 25000 }).catch(() => {});
+await desktop.waitForTimeout(700);
+await desktop.locator('button:has-text("Set up")').first().click();
+await desktop.waitForSelector('.setup-board', { timeout: 5000 }).catch(() => {});
+await desktop.locator('button:has-text("Empty board")').first().click();
+await desktop.waitForTimeout(250);
+const put = async (tool, sq) => {
+  await desktop.locator(`.setup-tool[data-tool="${tool}"]`).click();
+  const box = await desktop.locator('.setup-board .board-squares').boundingBox();
+  const col = 'abcdefgh'.indexOf(sq[0]);
+  const rank = parseInt(sq[1], 10);
+  await desktop.mouse.click(box.x + (col + 0.5) * (box.width / 8), box.y + (8 - rank + 0.5) * (box.height / 8));
+  await desktop.waitForTimeout(90);
+};
+await put('wk', 'e1');
+await put('wp', 'a7');
+await put('wp', 'c7');
+await put('bk', 'e8');
+await put('br', 'h8');
+await desktop.locator('.setup-tool[data-tool="move"]').click();
+await desktop.waitForTimeout(250);
+await desktop.screenshot({ path: OUT + 'desktop-setup.png' });
+console.log('wrote desktop-setup.png');
+
 
 // simultan needs a started session: start 4 boards and play one move
 await desktop.goto('about:blank');

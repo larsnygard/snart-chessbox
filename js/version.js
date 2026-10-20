@@ -5,7 +5,7 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.12.0-beta.1';
+export const VERSION = '1.13.0-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
 export const BUILD = '2026-10-20';
 export const IS_BETA = CHANNEL === 'beta';
@@ -21,6 +21,18 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.13.0-beta.1',
+    date: '2026-10-20',
+    channel: 'beta',
+    notes: [
+      'Set up any position on the analysis board: pick a piece from the palette and click a square, drag pieces around, drag one off the board (or right-click) to remove it.',
+      'The setup has its own controls — who is to move, the four castling rights, and an en passant square, which is only offered where a capture can really be made.',
+      'Nothing reaches the analysis board unchecked: one king per side, no pawns on the first or last rank, no more pieces than a game can produce, the side that just moved not left in check, castling rights only where the king and rook still stand, and a legal en passant square. Finished positions load with a note instead of silence.',
+      'Quick positions to start from: start position, empty board, K+Q vs K, K+R vs K, K+P vs K, the Lucena position and the Philidor position.',
+      'Offline fix: the Analyse screen and its editor were missing from the service-worker precache, so they failed with the network off. A test now asserts that every shipped module is precached.',
+    ],
+  },
   {
     version: '1.12.0-beta.1',
     date: '2026-10-20',

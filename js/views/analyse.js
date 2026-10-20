@@ -16,6 +16,7 @@ import { START_FEN, isValidFen, turnOf } from '../core/chessutil.js';
 import { emptyTree, addLine, treeStats, treeLines } from '../core/repertoire.js';
 import { parsePGN } from '../core/pgn.js';
 import { createExplorer } from '../ui/explorer.js';
+import { createSetupBoard } from '../ui/setup-board.js';
 import { saveResume, matchResume } from '../ui/resume.js';
 
 const RESUME_KEY = 'analyse';
@@ -38,18 +39,24 @@ export function render(host, params, query) {
   }
 
   const badge = el('span', { class: 'badge', text: '' });
-  const top = el('div', { class: 'row', style: 'margin-bottom:10px;gap:8px;flex-wrap:wrap' },
-    el('strong', { text: 'Analysis' }),
-    badge,
-    el('div', { class: 'spacer' }),
+  const actions = el('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' },
+    el('button', { class: 'btn sm', html: `${icon('pencil')}<span>Set up…</span>`, onclick: openSetup }),
     el('button', { class: 'btn sm', text: 'Position (FEN)…', onclick: fenDialog }),
     el('button', { class: 'btn sm', text: 'Game (PGN)…', onclick: gameDialog }),
     el('button', { class: 'btn sm', text: 'Copy FEN', onclick: copyFen }),
     el('button', { class: 'btn sm ghost', text: 'Clear', onclick: clearBoard }));
+  const top = el('div', { class: 'row', style: 'margin-bottom:10px;gap:8px;flex-wrap:wrap' },
+    el('strong', { text: 'Analysis' }),
+    badge,
+    el('div', { class: 'spacer' }),
+    actions);
   const body = el('div');
   host.append(top, body);
 
   let explorer = null;      // declared before mount(): onCursor fires during mount
+  let setup = null;         // the position editor, when it is open
+  let mode = 'analysis';
+  let savedView = null;     // cursor to restore if the editor is cancelled
   let saveTimer = null;
 
   function mount(pathAfter = null) {
@@ -77,7 +84,45 @@ export function render(host, params, query) {
     markDirty();
   }
 
+  // ---------------------------------------------------------------- set up
+  /** Open the position editor, seeded with whatever is on the board now. */
+  function openSetup() {
+    if (mode === 'setup') return;
+    savedView = explorer ? { path: explorer.path, cursor: explorer.cursor } : null;
+    const seed = explorer ? explorer.fen : (tree.fen || START_FEN);
+    mode = 'setup';
+    actions.style.display = 'none';
+    if (explorer) { explorer.destroy(); explorer = null; }
+    clearTimeout(saveTimer); // editing a setup must not overwrite the saved session
+    body.innerHTML = '';
+    badge.textContent = 'Set up';
+    setup = createSetupBoard(body, {
+      settings: state.settings,
+      orientation: turnOf(seed),
+      onUse: (fen, warnings) => {
+        setup = null;
+        mode = 'analysis';
+        actions.style.display = '';
+        tree = emptyTree(turnOf(fen), fen);
+        startPath = [];
+        mount();
+        toast('Position set up', 'ok');
+        for (const w of warnings) toast(w, '');
+      },
+      onCancel: () => {
+        setup = null;
+        mode = 'analysis';
+        actions.style.display = '';
+        mount(savedView ? savedView.path : startPath);
+        if (savedView && explorer) explorer.setCursor(savedView.cursor);
+        savedView = null;
+      },
+    });
+    setup.setFen(seed);
+  }
+
   function updateBadge() {
+    if (mode === 'setup') return; // the editor sets its own badge
     const st = treeStats(tree);
     badge.textContent = `${st.nodes} position${st.nodes === 1 ? '' : 's'} · ${st.leaves} line${st.leaves === 1 ? '' : 's'}`;
   }
@@ -193,6 +238,7 @@ export function render(host, params, query) {
     destroy() {
       clearTimeout(saveTimer);
       if (explorer) explorer.destroy();
+      if (setup) setup.destroy();
     },
   };
 }

@@ -113,7 +113,14 @@
       "type": "image/png",
       "form_factor": "wide",
       "label": "Analysis board: the engine's top three moves with win/draw/loss"
+    },
+    {
+      "src": "screenshots/desktop-setup.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Position editor: build a position, then set side, castling and en passant"
     }
   ],
-  "version": "1.12.0-beta.1"
+  "version": "1.13.0-beta.1"
 }

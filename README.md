@@ -100,6 +100,17 @@ the whole app (engine included) is cached by a service worker so it works on a p
 - A free board for thinking: paste a **position (FEN)** or a **whole game (PGN)**, then play
   whatever you like — a move that differs from the recorded line becomes a variation beside it,
   and the strip's `◀ ▶` step back and forward through the result.
+- **Set up…** builds a position by hand: pick a piece from the palette and click a square, drag
+  pieces around, drag one off the board (or right-click) to remove it. Beside the board: who is
+  to move, the four castling rights and an en passant square — the latter only offered where a
+  pawn can actually capture.
+- **Nothing arrives unchecked.** Before the analysis board accepts the position it verifies one
+  king a side, no pawns on the first or last rank, no more material than a game can produce, the
+  side that just moved not left in check, castling rights only where the king and rook still
+  stand, and an en passant square that is empty and really usable. Checkmate or stalemate loads
+  with a note rather than silently.
+- **Quick positions**: start position, empty board, K+Q vs K, K+R vs K, K+P vs K, Lucena,
+  Philidor.
 - The engine's top three moves arrive as ranked arrows and as a list with win/draw/loss;
   clicking one of them plays it. Copy the FEN out, or start over with Clear.
 - The session is remembered: leaving for Settings (or any other screen) and coming back keeps

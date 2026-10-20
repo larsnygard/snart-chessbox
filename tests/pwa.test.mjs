@@ -5,7 +5,7 @@
 // looks healthy and fails only when the user is offline.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -40,6 +40,20 @@ test('every local script/style/icon the page loads is precached', () => {
   ].filter((u) => !/^https?:/.test(u));
   for (const ref of refs) assert.ok(assets.has(ref), `page loads ${ref} but it is not precached`);
   assert.ok(assets.has('index.html'), 'navigation document must be precached');
+});
+
+test('every shipped module is precached, including lazily imported views', () => {
+  // The import walk below only visits files that are already in ASSETS, so a
+  // module missing from the list hides itself *and* whatever it imports: the app
+  // works online and 404s the moment a screen is opened offline. This test is the
+  // independent check that closes that hole.
+  const assets = new Set(swAssets().map((a) => a.replace(/^\.\//, '')));
+  const walk = (dir) => readdirSync(join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => (
+    entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)]
+  ));
+  const shipped = walk('js');
+  const missing = shipped.filter((f) => !assets.has(f));
+  assert.deepEqual(missing, [], `shipped but not precached: ${missing.join(', ')}`);
 });
 
 test('ES module imports resolve to files that exist and are precached', () => {

@@ -391,6 +391,7 @@ export function createExplorer(host, opts = {}) {
     get cursor() { return cursor; },
     get fen() { return fenAt(cursor); },
     setPath: loadPath,
+    setCursor(n) { go(n); },
     playUci,
   };
 }
