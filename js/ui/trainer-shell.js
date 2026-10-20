@@ -64,6 +64,7 @@ export function trainerShell(host, opts = {}) {
     allowEngine: opts.allowEngine !== false,
     onPlayFromHere: opts.onPlayFromHere,
     showPlayFromHere: opts.showPlayFromHere,
+    allowDeep: opts.allowDeep,
   });
   board.onPosition(() => tools.refresh());
 

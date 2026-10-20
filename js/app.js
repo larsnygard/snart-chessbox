@@ -62,6 +62,7 @@ export function trainerCtx() {
 const NAV = [
   { id: 'home', label: 'Train', icon: 'home' },
   { id: 'play', label: 'Play', icon: 'play' },
+  { id: 'analyse', label: 'Analyse', icon: 'search' },
   { id: 'openings', label: 'Openings', icon: 'book' },
   { id: 'endgames', label: 'Endgames', icon: 'crown' },
   { id: 'puzzles', label: 'Puzzles', icon: 'puzzle' },
@@ -81,6 +82,7 @@ async function loadViews() {
   const mods = {
     home: './views/home.js',
     play: './views/play.js',
+    analyse: './views/analyse.js',
     openings: './views/openings.js',
     endgames: './views/endgames.js',
     puzzles: './views/puzzles.js',
@@ -141,7 +143,7 @@ async function renderRoute() {
 
 function titleFor(name, route) {
   const map = {
-    home: 'Train', play: 'Play vs engine', openings: 'Openings', endgames: 'Endgames', puzzles: 'Puzzles',
+    home: 'Train', play: 'Play vs engine', analyse: 'Analysis board', openings: 'Openings', endgames: 'Endgames', puzzles: 'Puzzles',
     simultan: 'Simultan', memory: 'Game memory', coach: 'My games', database: 'PGN database', repertoire: 'Repertoire', sets: 'Exercise sets',
     about: 'About',
     settings: 'Settings', session: 'Session',

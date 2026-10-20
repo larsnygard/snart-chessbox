@@ -28,6 +28,18 @@ await shot(desktop, '/#/endgames/krk-1', 'desktop-endgame.png', 2000);
 await shot(desktop, '/#/puzzles?single=' + mate2.id, 'desktop-puzzle.png', 1500);
 await shot(desktop, '/#/memory', 'desktop-memory.png', 1200);
 
+// the analysis board: engine on, its three moves listed with W/D/L
+await desktop.goto('about:blank');
+await desktop.goto(BASE + '#/analyse', { waitUntil: 'domcontentloaded' });
+await desktop.waitForFunction(() => !document.getElementById('boot'), null, { timeout: 25000 }).catch(() => {});
+await desktop.waitForTimeout(900);
+await desktop.locator('.board-tools .engine-switch').first().click();
+await desktop.waitForFunction(() => document.querySelectorAll('.engine-moves .em-row').length >= 3, null, { timeout: 45000 }).catch(() => {});
+await desktop.waitForTimeout(900);
+await desktop.screenshot({ path: OUT + 'desktop-analyse.png' });
+console.log('wrote desktop-analyse.png');
+
+
 // simultan needs a started session: start 4 boards and play one move
 await desktop.goto('about:blank');
 await desktop.goto(BASE + '#/simultan', { waitUntil: 'domcontentloaded' });

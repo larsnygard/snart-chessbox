@@ -106,7 +106,14 @@
       "type": "image/png",
       "form_factor": "wide",
       "label": "Themed tactical puzzles"
+    },
+    {
+      "src": "screenshots/desktop-analyse.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Analysis board: the engine's top three moves with win/draw/loss"
     }
   ],
-  "version": "1.11.0-beta.1"
+  "version": "1.12.0-beta.1"
 }

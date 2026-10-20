@@ -114,6 +114,7 @@ export function render(host) {
       el('div', { class: 'faint', style: 'font-size:.76rem;margin-top:6px', text: 'Stockfish limits itself with UCI_Elo from 1320 up; below that the skill level and a shorter think time make it beatable.' })),
     el('label', { class: 'field' }, el('div', { class: 'row' }, el('span', { text: 'Randomness window (top moves)' }), el('div', { class: 'spacer' }), spreadOut), spread, spreadNote),
     el('label', { class: 'field' }, el('span', { text: 'How to pick inside the window' }), weighting),
+    toggle('thinkDeep', 'Think deeper (engine always on)', 'Every board starts with the engine running and searches about four times longer per position. The same switch sits in the board strip.'),
     testBtn, testOut);
   host.append(engineCard);
 

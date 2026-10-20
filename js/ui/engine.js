@@ -82,6 +82,7 @@ export class Engine {
       const depth = num(/ depth (\d+)/, line);
       const multipv = num(/ multipv (\d+)/, line) ?? 1;
       const cpM = / score (cp|mate) (-?\d+)/.exec(line);
+      const wdlM = / wdl (\d+) (\d+) (\d+)/.exec(line);
       const pv = (line.match(/ pv (.*)$/) || [])[1] || '';
       const move = pv.split(' ')[0] || null;
       if (cpM) {
@@ -91,6 +92,8 @@ export class Engine {
           move,
           cp: cpM[1] === 'cp' ? parseInt(cpM[2], 10) : null,
           mate: cpM[1] === 'mate' ? parseInt(cpM[2], 10) : null,
+          // [wins, draws, losses] in per mille, from the side to move's view
+          wdl: wdlM ? [parseInt(wdlM[1], 10), parseInt(wdlM[2], 10), parseInt(wdlM[3], 10)] : null,
           pv,
         };
         st.lines.set(multipv, entry);
@@ -118,6 +121,9 @@ export class Engine {
     const cmds = ['setoption name Threads value ' + (opts.threads || 1), 'setoption name Hash value ' + (opts.hash || 64)];
     if (multipv && multipv > 1) cmds.push(`setoption name MultiPV value ${Math.min(8, multipv)}`);
     else cmds.push('setoption name MultiPV value 1');
+    // Win/Draw/Loss (per mille, from the side to move) alongside every score —
+    // the honest way to show "much better" instead of a bare +3.20.
+    cmds.push('setoption name UCI_ShowWDL value true');
     if (elo && elo >= 1320) {
       cmds.push('setoption name UCI_LimitStrength value true');
       cmds.push(`setoption name UCI_Elo value ${Math.min(3190, Math.round(elo))}`);

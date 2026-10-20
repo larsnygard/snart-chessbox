@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS = {
   showEval: true,
   engineArrows: true,    // board strip: show the engine's arrows
   engineMoves: true,     // board strip: show the engine's top-3 move list
+  thinkDeep: false,      // board strip: engine always on + a longer search
   // board
   boardTheme: 'forest',
   pieceSet: 'classic',

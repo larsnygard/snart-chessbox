@@ -193,8 +193,10 @@ export function createBoard(host, opts = {}) {
         : a.color === 'yellow' ? 'ah-yellow'
         : a.color === 'green' ? 'ah-green'
         : 'ah-hint';
-      const alpha = a.preview ? 0.6 : (a.weak ? 0.55 : 0.92);
-      const wide = a.preview ? 0.1 : (a.weak ? 0.085 : 0.13);
+      // stroke width and opacity may be given per arrow: the engine's top-3
+      // arrows use them to rank the moves (thick+bright = the move it likes)
+      const alpha = a.preview ? 0.6 : (a.alpha != null ? a.alpha : (a.weak ? 0.55 : 0.92));
+      const wide = a.preview ? 0.1 : (a.width != null ? a.width : (a.weak ? 0.085 : 0.13));
       // invisible fat line first: an arrow is a 0.13-unit stroke, far too thin to tap
       svg.insertAdjacentHTML('beforeend', `<line class="arrow-hit" data-i="${i}" x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="transparent" stroke-width="0.6"/>`);
       svg.insertAdjacentHTML('beforeend', `<line class="arrow-line" x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width="${wide}" marker-end="url(#${marker})" opacity="${alpha}"/>`);

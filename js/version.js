@@ -5,7 +5,7 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.11.0-beta.1';
+export const VERSION = '1.12.0-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
 export const BUILD = '2026-10-20';
 export const IS_BETA = CHANNEL === 'beta';
@@ -21,6 +21,18 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.12.0-beta.1',
+    date: '2026-10-20',
+    channel: 'beta',
+    notes: [
+      'New Analyse board (menu entry after Play): paste a position (FEN) or a whole game (PGN), play any move — a different move becomes a variation beside the recorded one — and step through it with the strip. The session is remembered.',
+      'The engine now draws its top three moves as arrows, ranked by thickness and colour: a wide green arrow is what it wants, thin warm arrows are the alternatives (a move that loses ground turns orange or red).',
+      'The eval bar shows win/draw/loss (UCI_ShowWDL): three segments plus the numbers, White’s wins first, so a drawn-looking +0.3 is no longer confused with a winning one.',
+      'A Think deeper switch keeps the engine on across screens and searches about four times longer per position; it is also in Settings → Engine.',
+      'Clicking one of the engine’s moves on the Analyse board plays it; hovering still shows the whole line.',
+    ],
+  },
   {
     version: '1.11.0-beta.1',
     date: '2026-10-20',

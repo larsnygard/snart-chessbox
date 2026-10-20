@@ -67,6 +67,7 @@ export function mountPlay(host, ctx, opts = {}) {
     animate: settings.animate,
     settings,
     showPlayFromHere: false, // we are already on the play board
+    allowDeep: false,        // the game engine is already searching on this screen
     nav: {
       first: () => goTo(0),
       back: () => goTo(cursor - 1),

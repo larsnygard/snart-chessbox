@@ -22,6 +22,8 @@ export function createExplorer(host, opts = {}) {
   const editable = opts.editable !== false;
   const settings = opts.settings || {};
   const onChange = opts.onChange || (() => {});
+  // screens that are not a repertoire (the analysis board) relabel the panel
+  const labels = opts.labels || {};
   // Start on the most-played line (cursor at the root) so the move list shows
   // the repertoire immediately instead of an empty panel; clicking any move
   // then walks the board along it.
@@ -38,7 +40,7 @@ export function createExplorer(host, opts = {}) {
   const head = el('div', { class: 'row', style: 'gap:8px' },
     el('div', { class: 'row', style: 'gap:8px;font-weight:600' }, opts.title || 'Position'),
     el('div', { class: 'spacer' }),
-    el('span', { class: 'badge', text: tree.color === 'b' ? 'Black repertoire' : 'White repertoire' }));
+    el('span', { class: 'badge', text: labels.badge || (tree.color === 'b' ? 'Black repertoire' : 'White repertoire') }));
   const boardHost = el('div');
   const statusRow = el('div', { class: 'row', style: 'gap:8px' }, el('div', { class: 'board-status' }));
   const toolsRow = el('div');
@@ -58,7 +60,7 @@ export function createExplorer(host, opts = {}) {
   // ---- side panel
   const listCard = el('div', { class: 'card' });
   const listHead = el('div', { class: 'card-head' },
-    el('h3', { style: 'margin:0', text: editable ? 'Moves (click to jump, pencil to edit)' : 'Moves' }),
+    el('h3', { style: 'margin:0', text: labels.listTitle || (editable ? 'Moves (click to jump, pencil to edit)' : 'Moves') }),
     el('div', { class: 'spacer' }),
     el('span', { class: 'badge', text: '' }));
   const moveList = el('div', { class: 'mtree' });
@@ -67,7 +69,7 @@ export function createExplorer(host, opts = {}) {
   if (editable) listCard.append(addRow);
 
   const treeCard = el('details', { class: 'card', style: 'margin-top:12px' },
-    el('summary', { style: 'cursor:pointer;font-size:.86rem', text: 'Whole repertoire (lines)' }),
+    el('summary', { style: 'cursor:pointer;font-size:.86rem', text: labels.treeSummary || 'Whole repertoire (lines)' }),
     el('div', { class: 'tree-lines', style: 'margin-top:8px;max-height:260px;overflow:auto' }));
 
   sideCol.append(listCard, treeCard);
@@ -86,6 +88,9 @@ export function createExplorer(host, opts = {}) {
       state: () => ({ atStart: cursor === 0, atEnd: cursor >= path.length }),
     },
     onPlayFromHere: opts.onPlayFromHere,
+    // an analysis board lets a click on an engine row play that move
+    onEngineMove: opts.onEngineMove,
+    allowDeep: opts.allowDeep,
   });
   board.onPosition(() => tools.refresh());
 
@@ -139,26 +144,31 @@ export function createExplorer(host, opts = {}) {
   }
 
   function onBoardMove({ from, to, promotion }) {
-    const uci = from + to + (promotion || '');
+    playUci(from + to + (promotion || ''));
+  }
+
+  /** Play a UCI move from the cursor, adding a variation when it is new. */
+  function playUci(uci) {
     const fen = fenAt(cursor);
     const res = applyUci(fen, uci);
-    if (!res) return;
+    if (!res) return false;
     const prefix = path.slice(0, cursor);
     const exists = childrenAt(cursor).find((m) => m.uci === uci);
     if (!exists) {
       if (!editable) {
         toast('That move is not in this repertoire — switch to Edit to add it', '');
         board.setPosition(fen, { clearSelection: true });
-        return;
+        return false;
       }
       const added = addLine(tree, prefix.concat(res.san));
-      if (!added.ok) { toast(`Illegal move ${res.san}`, 'bad'); return; }
+      if (!added.ok) { toast(`Illegal move ${res.san}`, 'bad'); return false; }
       onChange();
       toast(`New variation: ${res.san}`, 'ok');
     }
     path = prefix.concat(res.san);
     cursor = path.length;
     render();
+    return true;
   }
 
   // ---------------------------------------------------------------- rendering
@@ -176,6 +186,7 @@ export function createExplorer(host, opts = {}) {
     renderStatus();
     renderFullTree();
     tools.refresh();
+    if (opts.onCursor) opts.onCursor({ path: path.slice(), cursor });
   }
 
   function renderStatus() {
@@ -214,7 +225,7 @@ export function createExplorer(host, opts = {}) {
       el('button', { class: 'mtree-start' + (cursor === 0 ? ' cur' : ''), text: 'Start position', onclick: () => go(0) }),
       el('span', { class: 'faint', style: 'font-size:.74rem', text: cursor === 0 ? 'click a move to walk the board along the line' : '' })));
     if (!path.length) {
-      moveList.append(el('div', { class: 'faint', style: 'font-size:.84rem;padding:8px 2px', text: editable ? 'Empty. Play a move on the board or add a line below.' : 'No line loaded.' }));
+      moveList.append(el('div', { class: 'faint', style: 'font-size:.84rem;padding:8px 2px', text: labels.empty || (editable ? 'Empty. Play a move on the board or add a line below.' : 'No line loaded.') }));
       return;
     }
     const startTurn = (tree.fen || START_FEN).split(' ')[1] === 'b' ? 'b' : 'w';
@@ -378,6 +389,8 @@ export function createExplorer(host, opts = {}) {
     destroy() { host.innerHTML = ''; },
     get path() { return path.slice(); },
     get cursor() { return cursor; },
+    get fen() { return fenAt(cursor); },
     setPath: loadPath,
+    playUci,
   };
 }

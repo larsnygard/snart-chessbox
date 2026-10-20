@@ -96,6 +96,15 @@ the whole app (engine included) is cached by a service worker so it works on a p
 - Games resume where you left them: open Settings (or any other screen) and come back, or use
   the "Continue where you left off" card on the home screen.
 
+**Analysis board**
+- A free board for thinking: paste a **position (FEN)** or a **whole game (PGN)**, then play
+  whatever you like — a move that differs from the recorded line becomes a variation beside it,
+  and the strip's `◀ ▶` step back and forward through the result.
+- The engine's top three moves arrive as ranked arrows and as a list with win/draw/loss;
+  clicking one of them plays it. Copy the FEN out, or start over with Clear.
+- The session is remembered: leaving for Settings (or any other screen) and coming back keeps
+  the analysis.
+
 **PGN database**
 - **Several named databases** with a switcher: create, rename, delete. Importing, searching
   and clearing always act on the active one, so a TWIC dump and your own collection can live
@@ -158,10 +167,17 @@ the whole app (engine included) is cached by a service worker so it works on a p
 
 **Board tools (every board, every screen)**
 - **Eval bar** with a live engine switch (off by default; the engine is hidden in puzzles and
-  memory quizzes so it cannot hand you the answer).
-- **Arrows** shows or hides the engine's arrows on the board, and **Moves** shows or hides the
-  engine's top three moves under the strip. Hover a move — or tap it on a phone — and the line
-  it plays appears ("1. e4 e5 2. Nf3 Nc6 3. Bb5"); both switches remember their setting.
+  memory quizzes so it cannot hand you the answer). It shows **win/draw/loss** from the engine
+  (UCI_ShowWDL) as three segments plus the numbers, and falls back to the plain white share when
+  a search comes back without WDL.
+- **Arrows** shows or hides the engine's arrows: its three favourite moves — a wide green arrow
+  for the one it wants, thinner ones for the alternatives, which turn orange and then red as
+  they fall behind. **Moves** shows the same three under the strip, each with its evaluation and
+  W/D/L; hover a move (or tap it on a phone) and the line it plays appears
+  ("1. e4 e5 2. Nf3 Nc6 3. Bb5"). On the analysis board a click plays that move instead.
+  Both switches remember their setting.
+- **Think deeper** keeps the engine on across screens with a search about four times longer per
+  position (also in Settings → Engine); switching the engine off cancels it.
 - **Play engine from this position** — always present, on any board, including repertoire
   browsing, game review, drills and puzzles.
 - **Move-list arrows** `◀ ▶` step back and forward through the line; reviewing an
