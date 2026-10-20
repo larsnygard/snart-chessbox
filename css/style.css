@@ -384,6 +384,29 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .evalbar .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 50%;
   background: linear-gradient(90deg, #f2f5fa, #c6d1e2); transition: width .25s ease; }
 
+/* the strip's display switches: a lit border says "on" (the phone layout keeps
+   only the label, so the state has to read without the ": on/off" suffix) */
+.board-tools .engine-switch.on, .board-tools .arrows-switch.on, .board-tools .moves-switch.on {
+  background: var(--accent-soft); border-color: rgba(55,185,138,.45); color: #d8fff2;
+}
+
+/* engine top-moves list (the Moves switch); hover/focus/tap reveals that line */
+.engine-moves { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.engine-moves.hidden { display: none; }
+.em-row { display: flex; align-items: baseline; gap: 7px; width: 100%; text-align: left;
+  background: #10151d; border: 1px solid var(--border-soft); border-radius: 7px;
+  padding: 3px 8px; font: inherit; font-size: .8rem; color: var(--text-dim); cursor: pointer; }
+.em-row:hover, .em-row:focus-visible { background: #18202c; color: var(--text); }
+.em-row.best { border-color: rgba(55,185,138,.35); }
+.em-no { font-family: var(--mono); font-size: .7rem; color: var(--text-faint); }
+.em-san { font-family: var(--mono); font-weight: 600; color: var(--text); }
+.em-eval { font-family: var(--mono); font-size: .74rem; color: var(--text-faint); }
+.em-eval.pos { color: #d8ffe9; }
+.em-eval.neg { color: #ffc9c9; }
+.em-line { display: none; min-width: 0; flex: 1 1 auto; font-family: var(--mono);
+  font-size: .74rem; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.em-row:hover .em-line, .em-row:focus-visible .em-line, .em-row.pinned .em-line { display: block; }
+
 /* ---------- move tree list ---------- */
 .mtree { overflow-anchor: none; display: flex; flex-direction: column; gap: 1px; font-family: var(--mono);
   font-size: .84rem; max-height: 340px; overflow-y: auto; padding-right: 4px; }
@@ -443,8 +466,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   .movelist { max-height: 160px; }
   .toasts { bottom: 76px; }
 }
-/* keep the board inside the viewport instead of scrolling the page */
-.trainer .board-col { max-width: min(100%, calc(100dvh - 265px)); }
+/* keep the board inside the viewport instead of scrolling the page; --em-h is
+   set by the board strip when its engine move list is open */
+.trainer .board-col { max-width: min(100%, calc(100dvh - 265px - var(--em-h, 0px))); }
 @media (min-width: 981px) {
   .board-sticky { position: sticky; top: 76px; }
 }
@@ -466,8 +490,17 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   .board-tools .eval-depth { display: none; }
   .board-tools .spacer { order: 4; flex-basis: 100%; height: 0; margin: 0; }
   .board-tools .engine-switch { order: 5; }
-  .board-tools .play-row { order: 6; flex: 1 1 160px; }
+  .board-tools .arrows-switch { order: 6; }
+  .board-tools .moves-switch { order: 7; }
+  .board-tools .play-row { order: 8; flex: 1 1 160px; }
   .board-tools .play-row .btn:first-child { flex: 1 1 auto; }
+  /* the three switches keep only their label, so state is the lit border */
+  .board-tools .st { display: none; }
+  .board-tools .engine-switch, .board-tools .arrows-switch, .board-tools .moves-switch { padding: 6px 7px; }
+  /* the move list turns into one scrollable row of chips: three rows of list
+     would cost more height than the board can spare on a phone */
+  .engine-moves { flex-direction: row; gap: 6px; overflow-x: auto; padding-bottom: 1px; }
+  .em-row { width: auto; flex: 0 0 auto; }
 }
 @media (orientation: landscape) and (max-height: 560px) {
   .trainer { grid-template-columns: minmax(0, 1fr) minmax(240px, 34vw); }

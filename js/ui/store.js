@@ -22,6 +22,8 @@ export const DEFAULT_SETTINGS = {
   autoAdvance: true,
   showLegalMoves: true,
   showEval: true,
+  engineArrows: true,    // board strip: show the engine's arrows
+  engineMoves: true,     // board strip: show the engine's top-3 move list
   // board
   boardTheme: 'forest',
   pieceSet: 'classic',

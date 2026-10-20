@@ -187,6 +187,7 @@ export function render(host) {
       board,
       settings: state.settings,
       engine: trainerCtx().engine,
+      engineMoveList: false, // one board of many: the strip stays compact
       onPlayFromHere: (fen, turn) => navigate(`/coach?fen=${encodeURIComponent(fen)}&side=${turn}&title=${encodeURIComponent('From a simul board')}`),
     });
     board.onPosition(() => tools.refresh());

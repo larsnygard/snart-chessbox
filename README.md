@@ -159,9 +159,12 @@ the whole app (engine included) is cached by a service worker so it works on a p
 **Board tools (every board, every screen)**
 - **Eval bar** with a live engine switch (off by default; the engine is hidden in puzzles and
   memory quizzes so it cannot hand you the answer).
+- **Arrows** shows or hides the engine's arrows on the board, and **Moves** shows or hides the
+  engine's top three moves under the strip. Hover a move — or tap it on a phone — and the line
+  it plays appears ("1. e4 e5 2. Nf3 Nc6 3. Bb5"); both switches remember their setting.
 - **Play engine from this position** — always present, on any board, including repertoire
   browsing, game review, drills and puzzles.
-- **Move-list arrows** `|◀ ◀ ▶ ▶|` step back and forward through the line; reviewing an
+- **Move-list arrows** `◀ ▶` step back and forward through the line; reviewing an
   earlier ply is non-destructive and one click returns to the live position.
 - **Variation arrows** on the board wherever a tree exists: the current move in green, the
   alternatives in blue, all clickable.

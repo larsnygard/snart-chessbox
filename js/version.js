@@ -5,7 +5,7 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.10.1-beta.1';
+export const VERSION = '1.11.0-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
 export const BUILD = '2026-10-20';
 export const IS_BETA = CHANNEL === 'beta';
@@ -21,6 +21,15 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.11.0-beta.1',
+    date: '2026-10-20',
+    channel: 'beta',
+    notes: [
+      'Two display switches beside the engine switch on every board: Arrows shows or hides the engine arrows, Moves shows or hides the engine’s top three moves.',
+      'Hover a move in that list (or tap it on a phone) to see the rest of the line — “1. e4 e5 2. Nf3 Nc6 3. Bb5”. Both switches remember their state.',
+    ],
+  },
   {
     version: '1.10.1-beta.1',
     date: '2026-10-20',
