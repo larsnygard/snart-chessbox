@@ -26,6 +26,7 @@ export function createBoard(host, opts = {}) {
     animate: opts.animate !== false,
     arrows: [],
     engineArrows: [],
+    arrowsVisible: true,  // the strip's Arrows switch hides the screen's own arrows too
     marks: new Map(),        // square -> 'green' | 'red' | 'yellow'  (right-click)
     markArrows: new Map(),   // 'e2e4' -> colour                    (right-click drag)
     preview: null,           // arrow being drawn right now
@@ -63,6 +64,10 @@ export function createBoard(host, opts = {}) {
         <path d="M0 0 L10 5 L0 10 z" fill="#e6b93c"/></marker>
       <marker id="ah-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">
         <path d="M0 0 L10 5 L0 10 z" fill="#2fae80"/></marker>
+      <marker id="ah-book" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#a970ff"/></marker>
+      <marker id="ah-bookalt" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#6f5bb0"/></marker>
     </defs>`;
   board.append(squares, pieces, svg);
   root.append(board);
@@ -165,13 +170,17 @@ export function createBoard(host, opts = {}) {
     // Two layers: `arrows` belongs to the screen (book moves, hints, blunders),
     // `engineArrows` is owned by the engine panel and must not clobber them.
     const MARK_COLOUR = { red: '#e04848', yellow: '#e6b93c', green: '#2fae80', blue: '#3d8bfd' };
+    // book moves (a repertoire's own arrows) live in their own violet family so a
+    // green arrow always means the engine
+    const BOOK_COLOUR = { book: '#a970ff', bookalt: '#6f5bb0' };
     const userArrows = [...state.markArrows.entries()].map(([key, colour]) => ({
       from: key.slice(0, 2), to: key.slice(2, 4), color: colour, mark: true,
     }));
     if (state.preview && state.preview.from !== state.preview.to) {
       userArrows.push({ ...state.preview, color: state.preview.color || 'green', mark: true, preview: true });
     }
-    const all = state.arrows.concat(state.engineArrows, userArrows)
+    const screenArrows = state.arrowsVisible === false ? [] : state.arrows;
+    const all = screenArrows.concat(state.engineArrows, userArrows)
       .filter((a) => a && a.from && a.to && a.from !== a.to);
     const defs = svg.querySelector('defs');
     svg.innerHTML = '';
@@ -186,9 +195,11 @@ export function createBoard(host, opts = {}) {
       const ex = x2 - ux * 0.26, ey = y2 - uy * 0.26;
       const color = a.color === 'bad' ? '#e05656'
         : a.color === 'best' ? '#37b98a'
+        : BOOK_COLOUR[a.color] ? BOOK_COLOUR[a.color]
         : MARK_COLOUR[a.color] || '#3d8bfd';
       const marker = a.color === 'bad' ? 'ah-bad'
         : a.color === 'best' ? 'ah-best'
+        : BOOK_COLOUR[a.color] ? `ah-${a.color}`
         : a.color === 'red' ? 'ah-red'
         : a.color === 'yellow' ? 'ah-yellow'
         : a.color === 'green' ? 'ah-green'
@@ -492,6 +503,9 @@ export function createBoard(host, opts = {}) {
       if (positionCb) positionCb(fen);
     },
     setArrows(arrows) { state.arrows = arrows || []; renderArrows(); },
+    /** Hide the screen's arrows (book moves, hints) without dropping them. */
+    setArrowsVisible(v) { state.arrowsVisible = v !== false; renderArrows(); },
+    arrowsVisible() { return state.arrowsVisible !== false; },
     setEngineArrows(arrows) { state.engineArrows = arrows || []; renderArrows(); },
     clearMarks,
     getMarks() { return { squares: [...state.marks.entries()], arrows: [...state.markArrows.entries()] }; },

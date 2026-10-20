@@ -5,7 +5,7 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.13.0-beta.1';
+export const VERSION = '1.14.0-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
 export const BUILD = '2026-10-20';
 export const IS_BETA = CHANNEL === 'beta';
@@ -21,6 +21,16 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.14.0-beta.1',
+    date: '2026-10-20',
+    channel: 'beta',
+    notes: [
+      'Book moves now have their own colour: in a repertoire (browse, edit and the trainer) the move the line plays is a solid violet arrow and the alternatives are dimmer violet, so a green arrow always means the engine.',
+      'The Arrows switch now governs every arrow on the board — repertoire moves and the engine’s alike — instead of only the engine layer.',
+      'Hints in puzzles and memory quizzes keep their own toggles; they are unaffected.',
+    ],
+  },
   {
     version: '1.13.0-beta.1',
     date: '2026-10-20',

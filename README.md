@@ -181,10 +181,10 @@ the whole app (engine included) is cached by a service worker so it works on a p
   memory quizzes so it cannot hand you the answer). It shows **win/draw/loss** from the engine
   (UCI_ShowWDL) as three segments plus the numbers, and falls back to the plain white share when
   a search comes back without WDL.
-- **Arrows** shows or hides the engine's arrows: its three favourite moves — a wide green arrow
-  for the one it wants, thinner ones for the alternatives, which turn orange and then red as
-  they fall behind. **Moves** shows the same three under the strip, each with its evaluation and
-  W/D/L; hover a move (or tap it on a phone) and the line it plays appears
+- **Arrows** shows or hides *every* arrow on the board: the repertoire's book moves (violet — a
+  solid arrow for the move the line plays, dimmer for the alternatives) and the engine's three
+  moves (green / blue / yellow / red). **Moves** shows the engine's three under the strip, each
+  with its evaluation and W/D/L; hover a move (or tap it on a phone) and the line it plays appears
   ("1. e4 e5 2. Nf3 Nc6 3. Bb5"). On the analysis board a click plays that move instead.
   Both switches remember their setting.
 - **Think deeper** keeps the engine on across screens with a search about four times longer per
@@ -193,8 +193,9 @@ the whole app (engine included) is cached by a service worker so it works on a p
   browsing, game review, drills and puzzles.
 - **Move-list arrows** `◀ ▶` step back and forward through the line; reviewing an
   earlier ply is non-destructive and one click returns to the live position.
-- **Variation arrows** on the board wherever a tree exists: the current move in green, the
-  alternatives in blue, all clickable.
+- **Variation arrows** on the board wherever a tree exists: the move the line plays in violet,
+  the alternatives in a dimmer violet, all clickable. Violet is deliberately outside the engine's
+  palette — a green arrow is always the engine. The strip's Arrows switch hides both kinds.
 - Flip board, and the same strip on phone and desktop.
 
 **Everything else**

@@ -154,7 +154,7 @@ export function mountOpening(host, ctx, opts) {
 
   function renderBoard(lastUci) {
     const arrows = [];
-    if (st.lastOpponentUci) arrows.push(arrowOf(st.lastOpponentUci, 'best'));
+    if (st.lastOpponentUci) arrows.push(arrowOf(st.lastOpponentUci, 'book'));
     const live = st.viewPly === null || st.viewPly === undefined;
     const viewed = live ? null : st.ucis[st.viewPly - 1];
     const last = lastUci

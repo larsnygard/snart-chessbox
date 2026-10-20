@@ -125,13 +125,19 @@ export function createExplorer(host, opts = {}) {
   }
 
   function arrowList() {
-    return childrenAt(cursor).map((m, i) => ({
-      from: m.uci.slice(0, 2),
-      to: m.uci.slice(2, 4),
-      color: path[cursor] === m.san ? 'best' : 'hint',
-      weak: path[cursor] !== m.san,
-      san: m.san,
-    }));
+    // book colours (violet): the move this line actually plays is solid, the other
+    // continuations in the tree sit behind it. Green/blue is reserved for the engine.
+    return childrenAt(cursor).map((m) => {
+      const onLine = path[cursor] === m.san;
+      return {
+        from: m.uci.slice(0, 2),
+        to: m.uci.slice(2, 4),
+        color: onLine ? 'book' : 'bookalt',
+        width: onLine ? 0.14 : 0.095,
+        alpha: onLine ? 0.95 : 0.62,
+        san: m.san,
+      };
+    });
   }
 
   function onArrowClick(a) {

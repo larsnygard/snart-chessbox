@@ -85,7 +85,7 @@ export function createBoardTools(host, opts) {
     return { btn, st };
   }
   const engineSw = switchBtn('engine-switch', 'Engine', 'Engine analysis on/off');
-  const arrowsSw = switchBtn('arrows-switch', 'Arrows', 'Show/hide the engine arrows');
+  const arrowsSw = switchBtn('arrows-switch', 'Arrows', 'Show/hide every board arrow: book moves (violet) and the engine’s (green/blue)');
   const movesSw = switchBtn('moves-switch', 'Moves', 'Show/hide the engine’s top 3 moves');
   const deepSw = switchBtn('deep-switch', 'Think deeper', 'Think deeper: engine always on and a much longer search', 'Deeper');
 
@@ -138,6 +138,8 @@ export function createBoardTools(host, opts) {
     persistPreference('engineArrows', showArrows);
     syncSwitches();
     applyArrows();
+    // the screen's own arrows (repertoire book moves, hints) ride along
+    if (board.setArrowsVisible) board.setArrowsVisible(showArrows);
   });
 
   movesSw.btn.addEventListener('click', () => {
@@ -396,6 +398,9 @@ export function createBoardTools(host, opts) {
     destroy() { clearTimeout(timer); if (prevKeyCleanup) prevKeyCleanup(); wrap.remove(); movesPanel.remove(); },
   };
   syncSwitches();
+  // only screens that actually carry this switch follow the saved setting: the
+  // puzzle and memory-quiz hints have their own toggles
+  if (allowEngine && board.setArrowsVisible) board.setArrowsVisible(showArrows);
   if (deep) { on = true; syncSwitches(); refresh(); } // "always on" outlives the screen
   return api;
 }
