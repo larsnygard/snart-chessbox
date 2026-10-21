@@ -37,6 +37,7 @@ test('every local script/style/icon the page loads is precached', () => {
   const refs = [
     ...[...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1]),
     ...[...html.matchAll(/<link[^>]+href="([^"]+)"/g)].map((m) => m[1]),
+    ...[...html.matchAll(/<img[^>]+src="([^"]+)"/g)].map((m) => m[1]),
   ].filter((u) => !/^https?:/.test(u));
   for (const ref of refs) assert.ok(assets.has(ref), `page loads ${ref} but it is not precached`);
   assert.ok(assets.has('index.html'), 'navigation document must be precached');

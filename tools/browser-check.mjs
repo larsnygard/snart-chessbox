@@ -46,6 +46,22 @@ const navCount = await page.locator('#sidenav .nav-item').count();
 check('boots and renders navigation', navCount >= 9, `${navCount} nav items`);
 const bootGone = await page.locator('#boot').count();
 check('boot overlay removed', bootGone === 0);
+// the upper-left logo is the app icon itself (the toolbox artwork), not a letter tile
+const brandLogo = await page.evaluate(() => {
+  const img = document.querySelector('.sidebar .brand-mark');
+  if (!img) return null;
+  return {
+    tag: img.tagName,
+    src: img.getAttribute('src'),
+    loaded: img.complete && img.naturalWidth > 0,
+    w: Math.round(img.getBoundingClientRect().width),
+    text: (img.textContent || '').trim(),
+  };
+});
+check('the sidebar logo is the app icon image',
+  !!brandLogo && brandLogo.tag === 'IMG' && /icons\/icon\.svg$/.test(brandLogo.src || '') && brandLogo.loaded && brandLogo.w === 30,
+  brandLogo ? `${brandLogo.tag} ${brandLogo.src} ${brandLogo.loaded ? 'loaded' : 'NOT loaded'} ${brandLogo.w}px` : 'no logo');
+check('the old letter tile is gone', !!brandLogo && brandLogo.text === '');
 await page.screenshot({ path: OUT + '/desktop-home.png' });
 
 // engine warm-up
@@ -219,6 +235,15 @@ const bottomVisible = await page.locator('#bottomnav').isVisible();
 check('mobile bottom navigation visible', bottomVisible && bottomNav >= 5, `${bottomNav} buttons`);
 const sidebarHidden = await page.locator('.sidebar').isVisible();
 check('sidebar hidden on mobile', !sidebarHidden);
+const mobileLogo = await page.evaluate(() => {
+  const img = document.querySelector('.topbar .topbar-logo');
+  if (!img) return null;
+  const r = img.getBoundingClientRect();
+  return { visible: r.width > 0 && r.height > 0, loaded: img.complete && img.naturalWidth > 0, left: Math.round(r.left) };
+});
+check('the phone top bar carries the logo in its upper-left corner',
+  !!mobileLogo && mobileLogo.visible && mobileLogo.loaded && mobileLogo.left < 60,
+  mobileLogo ? JSON.stringify(mobileLogo) : 'no top-bar logo');
 await page.screenshot({ path: OUT + '/mobile-puzzles.png' });
 
 // ---- 8. service worker + installability
