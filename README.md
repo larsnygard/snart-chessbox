@@ -128,6 +128,11 @@ the whole app (engine included) is cached by a service worker so it works on a p
   year range, result, ECO and minimum length; review a game,
   send it to memory training, export the filtered set as PGN, **copy the result set into a new
   database**, or build a repertoire from it.
+- **Rating ranges per colour**: White Elo and Black Elo each take a minimum and a maximum, so
+  `2000–2300` and `2700+` (fill only "from") are both one filter. Ratings are read from the
+  PGN's `WhiteElo`/`BlackElo` headers and shown next to the names in the results; a game whose
+  PGN had none only matches when no rating bound is set, and re-importing that PGN fills the
+  ratings in without adding duplicates.
 
 **Game memory**
 - Study mode has a **move-arrow toggle** and **per-position notes**: comments and arrows you

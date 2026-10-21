@@ -100,6 +100,44 @@ export function parseGame(raw, fallbackFen = START_FEN) {
   return { headers, startFen, moves, ucis, fen, result, errors, raw };
 }
 
+/**
+ * Ratings from the PGN headers, `{ whiteElo, blackElo }`, 0 when a game carries
+ * none. Sources in order: WhiteElo/BlackElo, then WhiteRating/BlackRating and
+ * the common "White rating" spelling — bulletins and TWIC use different ones.
+ */
+export function ratingsFrom(headers = {}) {
+  const pick = (...keys) => {
+    for (const key of keys) {
+      const raw = headers[key];
+      if (raw === undefined || raw === null) continue;
+      const digits = String(raw).replace(/[^0-9]/g, '');
+      const value = parseInt(digits, 10);
+      if (Number.isFinite(value) && value > 0) return value;
+    }
+    return 0;
+  };
+  return {
+    whiteElo: pick('WhiteElo', 'WhiteELO', 'WhiteRating', 'White rating', 'WhiteUSCF'),
+    blackElo: pick('BlackElo', 'BlackELO', 'BlackRating', 'Black rating', 'BlackUSCF'),
+  };
+}
+
+/**
+ * Rating window test: `from`/`to` of 0 mean "no bound", so `from=2700, to=0`
+ * is 2700+. A game with no rating only passes when no bound was asked for —
+ * "any rating" must not silently drop games whose PGN had no Elo headers.
+ */
+export function ratingInRange(value, from = 0, to = 0) {
+  const v = Number(value) || 0;
+  const lo = Number(from) || 0;
+  const hi = Number(to) || 0;
+  if (!lo && !hi) return true;
+  if (!v) return false;
+  if (lo && v < lo) return false;
+  if (hi && v > hi) return false;
+  return true;
+}
+
 function guessResult(raw) {
   const tail = cleanMovetext(movetextOf(raw)).trim().split(/\s+/).slice(-1)[0];
   return RESULT_TOKENS.has(tail) ? (tail === '½-½' ? '1/2-1/2' : tail) : '*';

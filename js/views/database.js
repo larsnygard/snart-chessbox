@@ -11,7 +11,7 @@ import {
   importPGNText, searchGames, loadMeta, metaCached, getGame, deleteAllGames, exportPGN,
   toGameObjects, playerList, isImporting, databases, createDatabase, renameDatabase,
   deleteDatabase, setActiveDb, activeDbId, activeDb, exportDatabasePGN, exportDatabaseZip,
-  readDatabaseZip, createDatabaseFromRows, countInDb,
+  readDatabaseZip, createDatabaseFromRows, countInDb, dbOf,
 } from '../ui/pgndb.js';
 import { fetchExampleDatabase } from '../ui/packs.js';
 import { buildFromGames, treeStats, emptyTree } from '../core/repertoire.js';
@@ -30,7 +30,11 @@ export function render(host) {
   const resultBox = el('div');
   host.append(dbBar, importCard, filterCard, resultBox);
 
-  const filters = { player: '', whitePlayer: '', blackPlayer: '', event: '', yearFrom: '', yearTo: '', result: '', eco: '', minPlies: '' };
+  const filters = {
+    player: '', whitePlayer: '', blackPlayer: '', event: '', yearFrom: '', yearTo: '',
+    whiteEloFrom: '', whiteEloTo: '', blackEloFrom: '', blackEloTo: '',
+    result: '', eco: '', minPlies: '',
+  };
 
   drawDbBar();
   drawImport();
@@ -141,7 +145,7 @@ export function render(host) {
     const fileInput = el('input', { type: 'file', accept: '.pgn,.txt,text/plain', style: 'display:none' });
     const zipInput = el('input', { type: 'file', accept: '.zip,application/zip', style: 'display:none' });
     const area = el('textarea', { placeholder: '…or paste PGN here (one game or a whole collection)', style: 'min-height:90px' });
-    const info = el('div', { class: 'dim', style: 'font-size:.82rem' });
+    const info = el('div', { class: 'dim import-info', style: 'font-size:.82rem' });
     const bar = el('div', { class: 'meter hidden', style: 'margin-top:8px' }, el('i', { style: 'width:0%' }));
     const count = countInDb(activeDbId());
 
@@ -159,9 +163,14 @@ export function render(host) {
             info.textContent = `Parsing ${done}/${totalGames} · ${added} added`;
           },
         });
-        info.textContent = `Imported ${res.added} game(s)${res.duplicates ? `, ${res.duplicates} already present` : ''}${res.skipped ? `, ${res.skipped} skipped` : ''}.`;
-        toast(`Database: ${res.added} game(s) added`, 'ok');
+        const summary = `Imported ${res.added} game(s)${res.duplicates ? `, ${res.duplicates} already present` : ''}${res.rated ? `, ratings updated on ${res.rated}` : ''}${res.skipped ? `, ${res.skipped} skipped` : ''}.`;
+        info.textContent = summary;
+        toast(`Database: ${res.added} game(s) added${res.rated ? `, ${res.rated} ratings filled in` : ''}`, 'ok');
         drawImport();
+        // the card was rebuilt, so the summary goes onto the new line — the old
+        // node (and the "ratings updated on N" message) used to vanish instantly
+        const fresh = importCard.querySelector('.import-info');
+        if (fresh) fresh.textContent = summary;
         drawFilters();
         runSearch(true);
       } catch (e) {
@@ -284,9 +293,12 @@ export function render(host) {
             info.textContent = `Parsing ${done}/${totalGames} · ${added} added`;
           },
         });
-        info.textContent = `Example database imported: ${res.added} game(s)${res.duplicates ? `, ${res.duplicates} already present` : ''}.`;
+        const summary = `Example database imported: ${res.added} game(s)${res.duplicates ? `, ${res.duplicates} already present` : ''}${res.rated ? `, ratings updated on ${res.rated}` : ''}.`;
+        info.textContent = summary;
         toast(`${res.added} games imported`, 'ok');
         drawImport();
+        const fresh = importCard.querySelector('.import-info');
+        if (fresh) fresh.textContent = summary;
         drawFilters();
         runSearch(true);
       } catch (e) {
@@ -322,6 +334,18 @@ export function render(host) {
     resultSel.value = filters.result;
     const ecoInput = el('input', { type: 'text', placeholder: 'ECO e.g. B', value: filters.eco, oninput: (e) => { filters.eco = e.target.value; } });
     const minPlies = el('input', { type: 'number', placeholder: 'min moves', oninput: (e) => { filters.minPlies = e.target.value; } });
+    const eloInput = (key, placeholder) => el('input', {
+      type: 'number', min: '0', max: '4000', step: '10', inputmode: 'numeric',
+      placeholder, value: filters[key],
+      oninput: (e) => { filters[key] = e.target.value; },
+    });
+    const whiteEloFrom = eloInput('whiteEloFrom', 'from');
+    const whiteEloTo = eloInput('whiteEloTo', 'to');
+    const blackEloFrom = eloInput('blackEloFrom', 'from');
+    const blackEloTo = eloInput('blackEloTo', 'to');
+    const eloRange = (a, b) => el('div', { class: 'row tight' }, a, el('span', { class: 'faint', text: '–' }), b);
+    const unrated = metaCached().filter((m) => dbOf(m) === activeDbId() && !m.whiteElo && !m.blackElo).length;
+    const ratingActive = ['whiteEloFrom', 'whiteEloTo', 'blackEloFrom', 'blackEloTo'].some((k) => Number(filters[k]) > 0);
 
     filterCard.append(
       el('div', { class: 'card-head' }, el('h3', { text: 'Search' }), el('div', { class: 'spacer' }),
@@ -337,6 +361,12 @@ export function render(host) {
       el('div', { class: 'split' },
         el('label', { class: 'field' }, el('span', { text: 'Result' }), resultSel),
         el('label', { class: 'field' }, el('span', { text: 'ECO prefix' }), ecoInput)),
+      el('div', { class: 'split' },
+        el('label', { class: 'field' }, el('span', { text: 'White Elo' }), eloRange(whiteEloFrom, whiteEloTo)),
+        el('label', { class: 'field' }, el('span', { text: 'Black Elo' }), eloRange(blackEloFrom, blackEloTo))),
+      el('div', { class: 'faint', style: 'font-size:.76rem;margin:-4px 0 6px', html: 'Ratings come from the PGN\u2019s WhiteElo/BlackElo headers. Leave one end empty for an open range — <b>from 2700</b> alone is 2700+.'
+        + (unrated ? ` <span class="badge" style="margin-left:6px">${unrated} of ${countInDb(activeDbId())} games have no rating</span>` : '')
+        + (unrated && ratingActive ? ' Re-import the same PGN to fill them in — duplicates pick up the ratings.' : '') }),
       el('div', { class: 'row' },
         el('button', { class: 'btn primary', html: `${icon('search')}<span>Search</span>`, onclick: () => runSearch(true) }),
         el('div', { class: 'spacer' }),
@@ -348,6 +378,8 @@ export function render(host) {
     const res = await searchGames({
       player: filters.player, whitePlayer: filters.whitePlayer, blackPlayer: filters.blackPlayer, event: filters.event,
       yearFrom: Number(filters.yearFrom) || 0, yearTo: Number(filters.yearTo) || 9999,
+      whiteEloFrom: Number(filters.whiteEloFrom) || 0, whiteEloTo: Number(filters.whiteEloTo) || 0,
+      blackEloFrom: Number(filters.blackEloFrom) || 0, blackEloTo: Number(filters.blackEloTo) || 0,
       result: filters.result, eco: filters.eco, minPlies: Number(filters.minPlies) || 0,
       limit, offset,
     });
@@ -368,7 +400,14 @@ export function render(host) {
     resultBox.append(head);
 
     if (!results.length) {
-      resultBox.append(el('div', { class: 'empty', text: metaCached().length ? 'No games match those filters.' : 'The database is empty. Load a PGN collection above.' }));
+      const ratingFilterOn = ['whiteEloFrom', 'whiteEloTo', 'blackEloFrom', 'blackEloTo'].some((k) => Number(filters[k]) > 0);
+      const noRatings = metaCached().filter((m) => dbOf(m) === activeDbId() && !m.whiteElo && !m.blackElo).length;
+      const empty = !metaCached().length
+        ? 'The database is empty. Load a PGN collection above.'
+        : ratingFilterOn && noRatings
+          ? `No games match those filters. ${noRatings} game(s) here carry no rating — importing the same PGN again fills them in without duplicating anything.`
+          : 'No games match those filters.';
+      resultBox.append(el('div', { class: 'empty', text: empty }));
       return;
     }
 
@@ -377,7 +416,7 @@ export function render(host) {
       list.append(el('div', { class: 'list-item' },
         el('span', { class: 'badge', text: String(g.year || '—') }),
         el('div', { class: 't' },
-          el('span', { class: 'name', text: `${g.white} – ${g.black}` }),
+          el('span', { class: 'name', text: `${withElo(g.white, g.whiteElo)} – ${withElo(g.black, g.blackElo)}` }),
           el('span', { class: 'sub', text: `${g.result} · ${Math.ceil(g.plies / 2)} moves${g.event ? ' · ' + g.event : ''}${g.eco ? ' · ' + g.eco : ''}` })),
         el('button', { class: 'btn sm', text: 'Review', onclick: () => openInCoach(g) }),
         el('button', { class: 'btn sm', text: 'Memorise', onclick: () => toMemory(g) })));
@@ -448,8 +487,15 @@ export function render(host) {
     return {
       player: filters.player, whitePlayer: filters.whitePlayer, blackPlayer: filters.blackPlayer, event: filters.event,
       yearFrom: Number(filters.yearFrom) || 0, yearTo: Number(filters.yearTo) || 9999,
+      whiteEloFrom: Number(filters.whiteEloFrom) || 0, whiteEloTo: Number(filters.whiteEloTo) || 0,
+      blackEloFrom: Number(filters.blackEloFrom) || 0, blackEloTo: Number(filters.blackEloTo) || 0,
       result: filters.result, eco: filters.eco, minPlies: Number(filters.minPlies) || 0,
     };
+  }
+
+  /** "Kasparov (2851)" — the rating only when the game carries one. */
+  function withElo(name, elo) {
+    return elo ? `${name} (${elo})` : name;
   }
 
   function filterSummary() {
@@ -461,6 +507,9 @@ export function render(host) {
     if (filters.yearFrom || filters.yearTo) bits.push(`${filters.yearFrom || ''}-${filters.yearTo || ''}`);
     if (filters.result) bits.push(filters.result);
     if (filters.eco) bits.push('ECO ' + filters.eco);
+    const win = (a, b) => (a && b ? `${a}-${b}` : a ? `${a}+` : b ? `-${b}` : '');
+    if (win(filters.whiteEloFrom, filters.whiteEloTo)) bits.push('wElo ' + win(filters.whiteEloFrom, filters.whiteEloTo));
+    if (win(filters.blackEloFrom, filters.blackEloTo)) bits.push('bElo ' + win(filters.blackEloFrom, filters.blackEloTo));
     return bits.join(' ').slice(0, 40) || 'From search';
   }
 
@@ -475,7 +524,9 @@ export function render(host) {
             const all = await searchGames({
               player: filters.player, event: filters.event,
               yearFrom: Number(filters.yearFrom) || 0, yearTo: Number(filters.yearTo) || 9999,
-              result: filters.result, eco: filters.eco, minPlies: Number(filters.minPlies) || 0,
+              whiteEloFrom: Number(filters.whiteEloFrom) || 0, whiteEloTo: Number(filters.whiteEloTo) || 0,
+      blackEloFrom: Number(filters.blackEloFrom) || 0, blackEloTo: Number(filters.blackEloTo) || 0,
+      result: filters.result, eco: filters.eco, minPlies: Number(filters.minPlies) || 0,
               limit: 100000, offset: 0,
             });
             const text = await exportPGN(all.games);
@@ -515,7 +566,9 @@ export function render(host) {
             const all = await searchGames({
               player: filters.player, event: filters.event,
               yearFrom: Number(filters.yearFrom) || 0, yearTo: Number(filters.yearTo) || 9999,
-              result: filters.result, eco: filters.eco, minPlies: Number(filters.minPlies) || 0,
+              whiteEloFrom: Number(filters.whiteEloFrom) || 0, whiteEloTo: Number(filters.whiteEloTo) || 0,
+      blackEloFrom: Number(filters.blackEloFrom) || 0, blackEloTo: Number(filters.blackEloTo) || 0,
+      result: filters.result, eco: filters.eco, minPlies: Number(filters.minPlies) || 0,
               limit: 100000, offset: 0,
             });
             if (!all.games.length) { toast('No games match', 'bad'); return false; }

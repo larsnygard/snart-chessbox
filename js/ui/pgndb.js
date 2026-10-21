@@ -7,7 +7,7 @@
 // big records — only the games you open are deserialised.
 
 import { store } from './store.js';
-import { splitGames, parseGame, buildPGN } from '../core/pgn.js';
+import { splitGames, parseGame, buildPGN, ratingsFrom, ratingInRange } from '../core/pgn.js';
 import { sanToUci } from '../core/chessutil.js';
 import { createZip, readZipTexts } from '../core/zip.js';
 
@@ -31,7 +31,7 @@ function hash(str) {
   return h.toString(36);
 }
 
-const dbOf = (m) => m.dbId || DEFAULT_DB;
+export const dbOf = (m) => m.dbId || DEFAULT_DB;
 
 // ---------------------------------------------------------------- databases
 export async function loadDatabases(force = false) {
@@ -125,15 +125,29 @@ export async function importPGNText(text, { source = '', dbId = null, onProgress
     if (!raws.length) return { added: 0, skipped: 0, duplicates: 0, total: 0 };
     const all = await loadMeta();
     const existing = new Set(all.filter((m) => dbOf(m) === target).map((m) => m.key));
+    const metaByKey = new Map(all.filter((m) => dbOf(m) === target).map((m) => [m.key, m]));
     const newMeta = [];
-    let added = 0, skipped = 0, duplicates = 0;
+    let added = 0, skipped = 0, duplicates = 0, rated = 0;
     let batch = [];
     for (let i = 0; i < raws.length && added < max; i++) {
       let parsed;
       try { parsed = parseGame(raws[i]); } catch (e) { skipped++; continue; }
       if (!parsed.moves.length || parsed.errors.length) { skipped++; continue; }
       const key = `${parsed.headers.White || ''}|${parsed.headers.Black || ''}|${(parsed.headers.Date || '').slice(0, 4)}|${parsed.moves.join(' ')}`;
-      if (existing.has(key)) { duplicates++; continue; }
+      const elo = ratingsFrom(parsed.headers);
+      if (existing.has(key)) {
+        // Same game, imported again — most often an older PGN of this collection
+        // without Elo headers. Backfill the ratings instead of dropping them.
+        const row = metaByKey.get(key);
+        if (row) {
+          let touched = false;
+          if (elo.whiteElo && row.whiteElo !== elo.whiteElo) { row.whiteElo = elo.whiteElo; touched = true; }
+          if (elo.blackElo && row.blackElo !== elo.blackElo) { row.blackElo = elo.blackElo; touched = true; }
+          if (touched) rated++;
+        }
+        duplicates++;
+        continue;
+      }
       existing.add(key);
       const year = parseInt((parsed.headers.Date || '').slice(0, 4), 10) || 0;
       const id = `${target}_${hash(key)}`;
@@ -150,6 +164,8 @@ export async function importPGNText(text, { source = '', dbId = null, onProgress
         year, round: parsed.headers.Round || '',
         result: parsed.result || '*',
         eco: parsed.headers.ECO || '',
+        whiteElo: elo.whiteElo,
+        blackElo: elo.blackElo,
         moves: parsed.moves,
         startFen: parsed.startFen,
         source, added: Date.now(),
@@ -161,6 +177,7 @@ export async function importPGNText(text, { source = '', dbId = null, onProgress
         whiteLower: record.whiteLower, blackLower: record.blackLower,
         event: record.event, eventLower: record.eventLower,
         year, result: record.result, eco: record.eco, plies: parsed.moves.length, source,
+        whiteElo: elo.whiteElo, blackElo: elo.blackElo,
       });
       added++;
       if (batch.length >= chunk) {
@@ -174,7 +191,7 @@ export async function importPGNText(text, { source = '', dbId = null, onProgress
     meta = all.concat(newMeta);
     await store.set(META_KEY, meta);
     if (onProgress) onProgress(raws.length, raws.length, added);
-    return { added, skipped, duplicates, total: raws.length };
+    return { added, skipped, duplicates, rated, total: raws.length };
   } finally {
     importing = false;
   }
@@ -186,6 +203,7 @@ export async function searchGames(opts = {}) {
   const {
     dbId = null, player = '', whitePlayer = '', blackPlayer = '',
     event = '', yearFrom = 0, yearTo = 9999, result = '', eco = '',
+    whiteEloFrom = 0, whiteEloTo = 0, blackEloFrom = 0, blackEloTo = 0,
     minPlies = 0, limit = 100, offset = 0, sort = 'year',
   } = opts;
   const target = dbId || activeDbId();
@@ -207,6 +225,8 @@ export async function searchGames(opts = {}) {
     if (result && m.result !== result) return false;
     if (eco && !(m.eco || '').toUpperCase().startsWith(eco.toUpperCase())) return false;
     if (minPlies && m.plies < minPlies) return false;
+    if (!ratingInRange(m.whiteElo, whiteEloFrom, whiteEloTo)) return false;
+    if (!ratingInRange(m.blackElo, blackEloFrom, blackEloTo)) return false;
     return true;
   });
   if (sort === 'year') filtered.sort((a, b) => (b.year || 0) - (a.year || 0));
@@ -227,6 +247,8 @@ export async function exportRowsPGN(rows) {
       headers: {
         Event: g.event, Site: g.site, Date: g.date, Round: g.round,
         White: g.white, Black: g.black, Result: g.result, ECO: g.eco,
+        // meta rows are the newer copy (a re-import backfills ratings there)
+        WhiteElo: m.whiteElo || g.whiteElo || '', BlackElo: m.blackElo || g.blackElo || '',
       },
       moves: g.moves, result: g.result, startFen: g.startFen,
     }));
@@ -293,6 +315,7 @@ export async function copyGamesToDatabase(rows, targetDbId, { source = 'copied' 
       white: rec.white, black: rec.black, whiteLower: rec.whiteLower, blackLower: rec.blackLower,
       event: rec.event, eventLower: rec.eventLower, year: rec.year,
       result: rec.result, eco: rec.eco, plies: (rec.moves || []).length, source,
+      whiteElo: rec.whiteElo || m.whiteElo || 0, blackElo: rec.blackElo || m.blackElo || 0,
     });
   }
   if (records.length) {
@@ -334,6 +357,7 @@ export async function toGameObjects(rows) {
     out.push({
       id: g.id, white: g.white, black: g.black, result: g.result, event: g.event,
       date: g.date, year: g.year, eco: g.eco, moves: g.moves,
+      whiteElo: g.whiteElo || m.whiteElo || 0, blackElo: g.blackElo || m.blackElo || 0,
       ucis: sanToUci(g.startFen, g.moves).ucis, startFen: g.startFen,
       source: g.source, updated: g.added,
     });

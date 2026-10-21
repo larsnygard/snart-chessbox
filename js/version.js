@@ -5,7 +5,7 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.14.1-beta.1';
+export const VERSION = '1.15.0-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
 export const BUILD = '2026-10-20';
 export const IS_BETA = CHANNEL === 'beta';
@@ -21,6 +21,17 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.15.0-beta.1',
+    date: '2026-10-21',
+    channel: 'beta',
+    notes: [
+      'The PGN database filters by rating: a White Elo range and a Black Elo range. Fill both ends for 2000-2300, or only “from” for 2700+.',
+      'Ratings come from the PGN’s WhiteElo/BlackElo headers (and the WhiteRating/“White rating” spellings some bulletins use) and are shown next to the players in the results.',
+      'A game whose PGN carries no rating only matches when no rating bound is set — the filter line says how many such games the database holds. Importing the same PGN again fills those ratings in without duplicating anything.',
+      'The import line now keeps its “ratings updated on N” message instead of being wiped as the card redraws.',
+    ],
+  },
   {
     version: '1.14.1-beta.1',
     date: '2026-10-20',
