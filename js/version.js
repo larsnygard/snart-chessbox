@@ -5,7 +5,7 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.18.0-beta.1';
+export const VERSION = '1.18.1-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
 export const BUILD = '2026-10-20';
 export const IS_BETA = CHANNEL === 'beta';
@@ -21,6 +21,15 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.18.1-beta.1',
+    date: '2026-10-21',
+    channel: 'beta',
+    notes: [
+      'Importing a big collection no longer freezes the page: the import hands control back to the browser every ~40 ms and updates its progress line as it goes. During the 9,834-game example import the longest stall dropped from 2.1 s to 0.2 s, and the page stays clickable throughout.',
+      'Building the position index for a collection imported before 1.17 works the same way, and says what it is doing while it runs.',
+    ],
+  },
   {
     version: '1.18.0-beta.1',
     date: '2026-10-21',

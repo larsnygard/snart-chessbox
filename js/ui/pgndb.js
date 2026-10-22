@@ -139,7 +139,15 @@ export async function importPGNText(text, { source = '', dbId = null, onProgress
     let added = 0, skipped = 0, duplicates = 0, rated = 0;
     let batch = [];
     const rawsToParse = raws.length > max ? raws.slice(0, max) : raws;
+    let lastBreath = Date.now();
     for (let i = 0; i < rawsToParse.length && added < max; i++) {
+      // hand the main thread back every ~40 ms of work, so the page stays alive and
+      // the progress line actually moves (chess.js parsing one game takes ~13 ms)
+      if (Date.now() - lastBreath > 40) {
+        if (onProgress) onProgress(i, rawsToParse.length, added);
+        await new Promise((r) => setTimeout(r, 0));
+        lastBreath = Date.now();
+      }
       let parsed;
       try { parsed = parseGame(rawsToParse[i]); } catch (e) { parsed = null; }
       if (!parsed || !parsed.moves.length || parsed.errors.length) { skipped++; continue; }
@@ -204,6 +212,8 @@ export async function importPGNText(text, { source = '', dbId = null, onProgress
     // a database that already has a position index gets the new games appended, so
     // the next search stays instant instead of rebuilding
     let indexed = false;
+    if (onProgress) onProgress(rawsToParse.length, rawsToParse.length, added);
+    await new Promise((r) => setTimeout(r, 0));
     try {
       const existing = await readPositionIndex(target);
       if (existing) {
@@ -326,9 +336,10 @@ async function assemblePositionIndex(dbId, entries) {
 }
 
 /** Walk every game of a database and hash the positions it passes through. */
-async function buildPositionIndex(dbId, { onProgress = null, batch = 120 } = {}) {
+async function buildPositionIndex(dbId, { onProgress = null, batch = 40 } = {}) {
   const rows = (await loadMeta()).filter((m) => dbOf(m) === dbId);
   const entries = [];
+  let lastBreath = Date.now();
   for (let i = 0; i < rows.length; i += batch) {
     const slice = rows.slice(i, i + batch);
     const records = await store.getGameRecords(slice.map((m) => m.id));
@@ -337,6 +348,12 @@ async function buildPositionIndex(dbId, { onProgress = null, batch = 120 } = {})
       const rec = byId.get(m.id);
       if (!rec) continue;
       entries.push({ id: m.id, hashes: gamePositionHashes(rec.startFen || START_FEN, rec.moves || []) });
+      // same rule as the import: never hold the main thread longer than ~40 ms
+      if (Date.now() - lastBreath > 40) {
+        if (onProgress) onProgress(Math.min(i + slice.indexOf(m) + 1, rows.length), rows.length, entries.length);
+        await new Promise((r) => setTimeout(r, 0));
+        lastBreath = Date.now();
+      }
     }
     if (onProgress) onProgress(Math.min(i + batch, rows.length), rows.length, entries.length);
     await new Promise((r) => setTimeout(r, 0));
