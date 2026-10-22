@@ -727,16 +727,21 @@ export function render(host) {
         { label: 'Cancel' },
         {
           label: 'Build', primary: true, onClick: async () => {
-            const all = await searchGames({
-              player: filters.player, event: filters.event,
-              yearFrom: Number(filters.yearFrom) || 0, yearTo: Number(filters.yearTo) || 9999,
-              whiteEloFrom: Number(filters.whiteEloFrom) || 0, whiteEloTo: Number(filters.whiteEloTo) || 0,
-      blackEloFrom: Number(filters.blackEloFrom) || 0, blackEloTo: Number(filters.blackEloTo) || 0,
-      result: filters.result, eco: filters.eco, minPlies: Number(filters.minPlies) || 0,
-              limit: 100000, offset: 0,
-            });
-            if (!all.games.length) { toast('No games match', 'bad'); return false; }
-            const games = await toGameObjects(all.games);
+            // the same filters as the search, including a position search — "these"
+            // must mean the games on screen
+            const fenActive = !!String(filters.fen || '').trim();
+            let rows;
+            if (fenActive) {
+              rows = matches.slice();
+            } else {
+              info.textContent = 'Finding the games…';
+              const all = await searchGames({ ...searchOpts(), limit: 100000, offset: 0 });
+              rows = all.games;
+            }
+            if (!rows.length) { toast('No games match', 'bad'); return false; }
+            info.textContent = `Loading ${rows.length} game(s)…`;
+            await new Promise((r) => setTimeout(r, 0));
+            const games = await toGameObjects(rows);
             const names = String(filters.player || '').toLowerCase().split(/[,;]/).map((s) => s.trim()).filter(Boolean);
             const filtered = onlyThisColour.checked && names.length
               ? games.filter((g) => {
@@ -745,6 +750,8 @@ export function render(host) {
               })
               : games;
             if (!filtered.length) { toast('No games for that colour and player filter', 'bad'); return false; }
+            info.textContent = `Merging ${filtered.length} game(s) into a move tree…`;
+            await new Promise((r) => setTimeout(r, 0));
             const tree = buildFromGames(filtered, {
               color: color.value, maxPly: Number(maxPly.value) || 20, minCount: Number(minCount.value) || 1,
             });

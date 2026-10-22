@@ -5,7 +5,7 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.18.1-beta.1';
+export const VERSION = '1.18.2-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
 export const BUILD = '2026-10-20';
 export const IS_BETA = CHANNEL === 'beta';
@@ -21,6 +21,16 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.18.2-beta.1',
+    date: '2026-10-21',
+    channel: 'beta',
+    notes: [
+      '“Build repertoire from these” works again, and shows what it is doing: it used to load one game at a time and compute every game’s move list twice, which on a 9,834-game collection looked like a freeze. Building from that collection now finishes in about half a minute.',
+      'It also honours a position search — “from these” now means the games the position found, not the whole database.',
+      'Export PGN and New database from these read their games in batches as well, so a large export or copy no longer crawls.',
+    ],
+  },
   {
     version: '1.18.1-beta.1',
     date: '2026-10-21',

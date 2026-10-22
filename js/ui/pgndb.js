@@ -506,18 +506,25 @@ export async function getGame(id) { return store.getGame(id); }
 // ---------------------------------------------------------------- export
 export async function exportRowsPGN(rows) {
   const parts = [];
-  for (const m of rows) {
-    const g = await getGame(m.id);
-    if (!g) continue;
-    parts.push(buildPGN({
-      headers: {
-        Event: g.event, Site: g.site, Date: g.date, Round: g.round,
-        White: g.white, Black: g.black, Result: g.result, ECO: g.eco,
-        // meta rows are the newer copy (a re-import backfills ratings there)
-        WhiteElo: m.whiteElo || g.whiteElo || '', BlackElo: m.blackElo || g.blackElo || '',
-      },
-      moves: g.moves, result: g.result, startFen: g.startFen,
-    }));
+  const list = rows || [];
+  for (let i = 0; i < list.length; i += 200) {
+    const slice = list.slice(i, i + 200);
+    const records = await store.getGameRecords(slice.map((m) => m.id));
+    const byId = new Map(records.map((r) => [r.id, r]));
+    for (const m of slice) {
+      const g = byId.get(m.id);
+      if (!g) continue;
+      parts.push(buildPGN({
+        headers: {
+          Event: g.event, Site: g.site, Date: g.date, Round: g.round,
+          White: g.white, Black: g.black, Result: g.result, ECO: g.eco,
+          // meta rows are the newer copy (a re-import backfills ratings there)
+          WhiteElo: m.whiteElo || g.whiteElo || '', BlackElo: m.blackElo || g.blackElo || '',
+        },
+        moves: g.moves, result: g.result, startFen: g.startFen,
+      }));
+    }
+    await new Promise((r) => setTimeout(r, 0));
   }
   return parts.join('\n');
 }
@@ -568,21 +575,28 @@ export async function copyGamesToDatabase(rows, targetDbId, { source = 'copied' 
   const existing = new Set(all.filter((m) => dbOf(m) === targetDbId).map((m) => m.key));
   const records = [];
   const newMeta = [];
-  for (const m of rows) {
-    const g = await getGame(m.id);
-    if (!g) continue;
-    if (existing.has(m.key)) continue;
-    existing.add(m.key);
-    const id = `${targetDbId}_${hash(m.key)}`;
-    const rec = { ...g, id, dbId: targetDbId, source, added: Date.now() };
-    records.push(rec);
-    newMeta.push({
-      id, key: m.key, dbId: targetDbId,
-      white: rec.white, black: rec.black, whiteLower: rec.whiteLower, blackLower: rec.blackLower,
-      event: rec.event, eventLower: rec.eventLower, year: rec.year,
-      result: rec.result, eco: rec.eco, plies: (rec.moves || []).length, source,
-      whiteElo: rec.whiteElo || m.whiteElo || 0, blackElo: rec.blackElo || m.blackElo || 0,
-    });
+  const list = rows || [];
+  for (let i = 0; i < list.length; i += 200) {
+    const slice = list.slice(i, i + 200);
+    const loaded = await store.getGameRecords(slice.map((m) => m.id));
+    const byId = new Map(loaded.map((r) => [r.id, r]));
+    for (const m of slice) {
+      const g = byId.get(m.id);
+      if (!g) continue;
+      if (existing.has(m.key)) continue;
+      existing.add(m.key);
+      const id = `${targetDbId}_${hash(m.key)}`;
+      const rec = { ...g, id, dbId: targetDbId, source, added: Date.now() };
+      records.push(rec);
+      newMeta.push({
+        id, key: m.key, dbId: targetDbId,
+        white: rec.white, black: rec.black, whiteLower: rec.whiteLower, blackLower: rec.blackLower,
+        event: rec.event, eventLower: rec.eventLower, year: rec.year,
+        result: rec.result, eco: rec.eco, plies: (rec.moves || []).length, source,
+        whiteElo: rec.whiteElo || m.whiteElo || 0, blackElo: rec.blackElo || m.blackElo || 0,
+      });
+    }
+    await new Promise((r) => setTimeout(r, 0));
   }
   if (records.length) {
     await store.putGameRecords(records);
@@ -622,16 +636,36 @@ export async function deleteGames(ids) {
 
 export async function toGameObjects(rows) {
   const out = [];
-  for (const m of rows) {
-    const g = await getGame(m.id);
-    if (!g) continue;
-    out.push({
-      id: g.id, white: g.white, black: g.black, result: g.result, event: g.event,
-      date: g.date, year: g.year, eco: g.eco, moves: g.moves,
-      whiteElo: g.whiteElo || m.whiteElo || 0, blackElo: g.blackElo || m.blackElo || 0,
-      ucis: sanToUci(g.startFen, g.moves).ucis, startFen: g.startFen,
-      source: g.source, updated: g.added,
-    });
+  const list = rows || [];
+  const BATCH = 200;
+  for (let i = 0; i < list.length; i += BATCH) {
+    const slice = list.slice(i, i + BATCH);
+    const records = await store.getGameRecords(slice.map((m) => m.id));
+    const byId = new Map(records.map((r) => [r.id, r]));
+    for (const m of slice) {
+      const g = byId.get(m.id);
+      if (!g) continue;
+      const entry = {
+        id: g.id, white: g.white, black: g.black, result: g.result, event: g.event,
+        date: g.date, year: g.year, eco: g.eco, moves: g.moves,
+        whiteElo: g.whiteElo || m.whiteElo || 0, blackElo: g.blackElo || m.blackElo || 0,
+        startFen: g.startFen,
+        source: g.source, updated: g.added,
+      };
+      // `ucis` costs a full SAN replay of the game; building a repertoire only needs
+      // the SAN moves, so it is computed on first read (and then remembered)
+      let ucis = null;
+      Object.defineProperty(entry, 'ucis', {
+        enumerable: true,
+        configurable: true,
+        get() {
+          if (!ucis) ucis = sanToUci(g.startFen, g.moves).ucis;
+          return ucis;
+        },
+      });
+      out.push(entry);
+    }
+    await new Promise((r) => setTimeout(r, 0));
   }
   return out;
 }

@@ -1,6 +1,6 @@
 {
   "name": "snart-chessbox",
-  "version": "1.18.1-beta.1",
+  "version": "1.18.2-beta.1",
   "private": true,
   "type": "module",
   "description": "Offline chess trainer: opening repertoires, endgame technique, tactics puzzles and game memory against Stockfish (PWA).",
