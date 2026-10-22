@@ -11,29 +11,38 @@ import {
   importPGNText, searchGames, loadMeta, metaCached, getGame, deleteAllGames, exportPGN,
   toGameObjects, playerList, isImporting, databases, createDatabase, renameDatabase,
   deleteDatabase, setActiveDb, activeDbId, activeDb, exportDatabasePGN, exportDatabaseZip,
-  readDatabaseZip, createDatabaseFromRows, countInDb, dbOf,
+  readDatabaseZip, createDatabaseFromRows, countInDb, dbOf, searchPosition,
 } from '../ui/pgndb.js';
 import { fetchExampleDatabase } from '../ui/packs.js';
+import { createSetupBoard } from '../ui/setup-board.js';
+import { normaliseFen, positionKey } from '../core/possearch.js';
 import { buildFromGames, treeStats, emptyTree } from '../core/repertoire.js';
 import { uid } from '../core/sets.js';
 import { download, exportName } from '../core/backup.js';
+import { START_FEN } from '../core/chessutil.js';
 
 export function render(host) {
   let results = [];
   let total = 0;
   let offset = 0;
   const limit = 60;
+  let matches = [];        // every game holding the searched position
+  let scanned = 0;         // games replayed for that search
+  let capped = false;      // the scan hit its ceiling
+  let setupEditor = null;  // the board used to build a FEN
+  let setupOpen = false;
 
   const dbBar = el('div');
   const importCard = el('div', { class: 'card', style: 'margin-bottom:14px' });
   const filterCard = el('div', { class: 'card', style: 'margin-bottom:12px' });
+  const setupHost = el('div', { class: 'card hidden', style: 'margin-bottom:12px' });
   const resultBox = el('div');
-  host.append(dbBar, importCard, filterCard, resultBox);
+  host.append(dbBar, importCard, filterCard, setupHost, resultBox);
 
   const filters = {
     player: '', whitePlayer: '', blackPlayer: '', event: '', yearFrom: '', yearTo: '',
     whiteEloFrom: '', whiteEloTo: '', blackEloFrom: '', blackEloTo: '',
-    result: '', eco: '', minPlies: '',
+    result: '', eco: '', minPlies: '', fen: '',
   };
 
   drawDbBar();
@@ -344,6 +353,12 @@ export function render(host) {
     const blackEloFrom = eloInput('blackEloFrom', 'from');
     const blackEloTo = eloInput('blackEloTo', 'to');
     const eloRange = (a, b) => el('div', { class: 'row tight' }, a, el('span', { class: 'faint', text: '–' }), b);
+    const fenInput = el('input', {
+      type: 'text', placeholder: 'Paste a FEN — or build the position on a board…',
+      value: filters.fen, spellcheck: 'false', autocapitalize: 'off', autocomplete: 'off',
+      style: 'flex:1 1 auto;min-width:0;font-family:var(--mono);font-size:.78rem',
+      oninput: (e) => { filters.fen = e.target.value; },
+    });
     const unrated = metaCached().filter((m) => dbOf(m) === activeDbId() && !m.whiteElo && !m.blackElo).length;
     const ratingActive = ['whiteEloFrom', 'whiteEloTo', 'blackEloFrom', 'blackEloTo'].some((k) => Number(filters[k]) > 0);
 
@@ -367,13 +382,52 @@ export function render(host) {
       el('div', { class: 'faint', style: 'font-size:.76rem;margin:-4px 0 6px', html: 'Ratings come from the PGN\u2019s WhiteElo/BlackElo headers. Leave one end empty for an open range — <b>from 2700</b> alone is 2700+.'
         + (unrated ? ` <span class="badge" style="margin-left:6px">${unrated} of ${countInDb(activeDbId())} games have no rating</span>` : '')
         + (unrated && ratingActive ? ' Re-import the same PGN to fill them in — duplicates pick up the ratings.' : '') }),
+      el('label', { class: 'field' }, el('span', { text: 'Position (FEN)' }),
+        el('div', { class: 'row', style: 'gap:6px;flex-wrap:nowrap' },
+          fenInput,
+          el('button', {
+            class: 'btn sm', html: `${icon('pencil')}<span>Board…</span>`,
+            title: 'Set the pieces up on a board and use that position',
+            onclick: () => toggleSetup(),
+          }))),
+      el('div', { class: 'faint', style: 'font-size:.76rem;margin:-4px 0 6px', html: 'Finds the games that reach this position — same pieces, same side to move. Castling rights, the en passant square and the clocks are ignored. Leave it empty to search by name, year or rating.' }),
       el('div', { class: 'row' },
         el('button', { class: 'btn primary', html: `${icon('search')}<span>Search</span>`, onclick: () => runSearch(true) }),
         el('div', { class: 'spacer' }),
         el('span', { class: 'faint', style: 'font-size:.78rem', text: 'Search runs on the stored metadata, so it stays instant.' })));
   }
 
+  /** The board used to build a FEN, right under the filters. */
+  function toggleSetup() {
+    if (setupOpen) { hideSetup(); return; }
+    setupOpen = true;
+    setupHost.classList.remove('hidden');
+    setupHost.innerHTML = '';
+    setupEditor = createSetupBoard(setupHost, {
+      settings: state.settings,
+      onUse: (fen) => {
+        filters.fen = fen;
+        hideSetup();
+        drawFilters();
+        runSearch(true);
+      },
+      onCancel: () => hideSetup(),
+    });
+    setupEditor.setFen(normaliseFen(filters.fen) || START_FEN);
+    setupHost.scrollIntoView({ block: 'nearest' });
+  }
+
+  function hideSetup() {
+    setupOpen = false;
+    setupHost.classList.add('hidden');
+    if (setupEditor) { setupEditor.destroy(); setupEditor = null; }
+    setupHost.innerHTML = '';
+  }
+
   async function runSearch(reset) {
+    const fen = String(filters.fen || '').trim();
+    if (fen) return runPositionSearch(reset, fen);
+    if (reset) { matches = []; scanned = 0; capped = false; }
     if (reset) { offset = 0; results = []; }
     const res = await searchGames({
       player: filters.player, whitePlayer: filters.whitePlayer, blackPlayer: filters.blackPlayer, event: filters.event,
@@ -389,15 +443,57 @@ export function render(host) {
     drawResults();
   }
 
+  /** Replay every game the cheap filters leave, and keep those that reach the FEN. */
+  async function runPositionSearch(reset, fen) {
+    if (!positionKey(normaliseFen(fen))) { toast('That FEN is not a valid position', 'bad'); return; }
+    if (reset) { offset = 0; results = []; matches = []; }
+    const bar = el('div', { class: 'meter', style: 'margin-top:10px' }, el('i', { style: 'width:0%' }));
+    const status = el('div', { class: 'dim', style: 'font-size:.82rem', text: 'Replaying the games…' });
+    resultBox.innerHTML = '';
+    resultBox.append(el('div', { class: 'card' },
+      el('div', { class: 'card-head' }, el('h3', { style: 'margin:0', text: 'Searching by position' })),
+      status, bar));
+    let res;
+    try {
+      res = await searchPosition(fen, {
+        ...searchOpts(),
+        onProgress: (done, all, found) => {
+          bar.querySelector('i').style.width = `${all ? Math.round((done / all) * 100) : 0}%`;
+          status.textContent = `Replayed ${done} of ${all} games — ${found} hold that position`;
+        },
+      });
+    } catch (e) {
+      resultBox.innerHTML = '';
+      toast('Could not search by position', 'bad');
+      return;
+    }
+    if (!res.ok) {
+      resultBox.innerHTML = '';
+      toast('That FEN is not a valid position', 'bad');
+      return;
+    }
+    matches = res.games;
+    total = res.total;
+    scanned = res.scanned;
+    capped = !!res.capped;
+    results = matches.slice(0, limit);
+    offset = results.length;
+    drawResults();
+  }
+
   function drawResults() {
     resultBox.innerHTML = '';
+    const posMode = !!String(filters.fen || '').trim();
     const head = el('div', { class: 'row', style: 'margin-bottom:10px;flex-wrap:wrap;gap:8px' },
-      el('h3', { style: 'margin:0', text: `${total} game${total === 1 ? '' : 's'} found` }),
+      el('h3', { style: 'margin:0', text: posMode ? `${total} game${total === 1 ? '' : 's'} reach that position` : `${total} game${total === 1 ? '' : 's'} found` }),
       el('div', { class: 'spacer' }),
       el('button', { class: 'btn sm', html: `${icon('star')}<span>Build repertoire from these</span>`, onclick: () => buildRepertoireDialog(), disabled: total === 0 || undefined }),
       el('button', { class: 'btn sm', html: `${icon('plus')}<span>New database from these</span>`, title: 'Copy the full result set into its own database', onclick: () => newDbFromResults(), disabled: total === 0 || undefined }),
       el('button', { class: 'btn sm', html: `${icon('download')}<span>Export PGN</span>`, onclick: exportResults, disabled: total === 0 || undefined }));
     resultBox.append(head);
+    if (posMode) {
+      resultBox.append(el('div', { class: 'faint', style: 'font-size:.76rem;margin-bottom:10px', text: `Replayed ${scanned} game${scanned === 1 ? '' : 's'} to find them${capped ? ' — stopped at the scan limit, narrow the other filters for a full sweep' : ''}.` }));
+    }
 
     if (!results.length) {
       const ratingFilterOn = ['whiteEloFrom', 'whiteEloTo', 'blackEloFrom', 'blackEloTo'].some((k) => Number(filters[k]) > 0);
@@ -417,7 +513,7 @@ export function render(host) {
         el('span', { class: 'badge', text: String(g.year || '—') }),
         el('div', { class: 't' },
           el('span', { class: 'name', text: `${withElo(g.white, g.whiteElo)} – ${withElo(g.black, g.blackElo)}` }),
-          el('span', { class: 'sub', text: `${g.result} · ${Math.ceil(g.plies / 2)} moves${g.event ? ' · ' + g.event : ''}${g.eco ? ' · ' + g.eco : ''}` })),
+          el('span', { class: 'sub', text: `${g.result} · ${Math.ceil(g.plies / 2)} moves${g.event ? ' · ' + g.event : ''}${g.eco ? ' · ' + g.eco : ''}${g.ply != null ? ` · reached at move ${Math.ceil(g.ply / 2)}` : ''}` })),
         el('button', { class: 'btn sm', text: 'Review', onclick: () => openInCoach(g) }),
         el('button', { class: 'btn sm', text: 'Memorise', onclick: () => toMemory(g) })));
     }
@@ -425,8 +521,15 @@ export function render(host) {
 
     if (results.length < total) {
       resultBox.append(el('div', { class: 'row', style: 'margin-top:10px;justify-content:center' },
-        el('button', { class: 'btn', text: `Load more (${total - results.length} left)`, onclick: () => runSearch(false) })));
+        el('button', { class: 'btn', text: `Load more (${total - results.length} left)`, onclick: () => (posMode ? loadMoreMatches() : runSearch(false)) })));
     }
+  }
+
+  /** Position results are already a full scan: page them from memory. */
+  function loadMoreMatches() {
+    results = matches.slice(0, results.length + limit);
+    offset = results.length;
+    drawResults();
   }
 
   async function gameObjects(rows) { return toGameObjects(rows); }
@@ -508,6 +611,7 @@ export function render(host) {
     if (filters.result) bits.push(filters.result);
     if (filters.eco) bits.push('ECO ' + filters.eco);
     const win = (a, b) => (a && b ? `${a}-${b}` : a ? `${a}+` : b ? `-${b}` : '');
+    if (String(filters.fen || '').trim()) bits.push('position');
     if (win(filters.whiteEloFrom, filters.whiteEloTo)) bits.push('wElo ' + win(filters.whiteEloFrom, filters.whiteEloTo));
     if (win(filters.blackEloFrom, filters.blackEloTo)) bits.push('bElo ' + win(filters.blackEloFrom, filters.blackEloTo));
     return bits.join(' ').slice(0, 40) || 'From search';

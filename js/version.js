@@ -5,7 +5,7 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.15.0-beta.1';
+export const VERSION = '1.16.0-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
 export const BUILD = '2026-10-20';
 export const IS_BETA = CHANNEL === 'beta';
@@ -21,6 +21,16 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.16.0-beta.1',
+    date: '2026-10-21',
+    channel: 'beta',
+    notes: [
+      'The PGN database can be searched by position: paste a FEN in the new field and every game is replayed to find the ones that reach it. Each result says at which move the position occurs.',
+      'A Board… button beside the field opens the position editor, so you can set the pieces up and use that position without writing a FEN by hand.',
+      '"Same position" is the same pieces with the same side to move — castling rights, the en passant square and the clocks are ignored, so a transposition is found too. The player, year and rating filters still narrow the scan first.',
+    ],
+  },
   {
     version: '1.15.0-beta.1',
     date: '2026-10-21',

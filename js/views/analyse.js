@@ -17,6 +17,7 @@ import { emptyTree, addLine, treeStats, treeLines } from '../core/repertoire.js'
 import { parsePGN } from '../core/pgn.js';
 import { createExplorer } from '../ui/explorer.js';
 import { createSetupBoard } from '../ui/setup-board.js';
+import { normaliseFen } from '../core/possearch.js';
 import { saveResume, matchResume } from '../ui/resume.js';
 
 const RESUME_KEY = 'analyse';
@@ -243,18 +244,3 @@ export function render(host, params, query) {
   };
 }
 
-/**
- * Accept a full FEN or the common shorthand: `board side` (a position copied out
- * of a book) gets castling/en-passant/clocks filled in.
- */
-function normaliseFen(raw) {
-  const text = String(raw || '').trim().replace(/\s+/g, ' ');
-  if (!text) return null;
-  if (isValidFen(text)) return text;
-  const parts = text.split(' ');
-  if (parts.length >= 2 && /^[wb]$/i.test(parts[1])) {
-    const padded = `${parts[0]} ${parts[1].toLowerCase()} - - 0 1`;
-    if (isValidFen(padded)) return padded;
-  }
-  return null;
-}

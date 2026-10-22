@@ -241,6 +241,32 @@ export class Store {
     });
   }
 
+  /**
+   * Many records in one read transaction — a position search replays thousands of
+   * games, and one transaction per game is what makes that feel broken.
+   */
+  async getGameRecords(ids = []) {
+    if (!ids || !ids.length) return [];
+    await this.open();
+    if (!this.db) {
+      const all = await this.get('pgnGamesFallback', []);
+      const want = new Set(ids);
+      return all.filter((g) => want.has(g.id));
+    }
+    return await new Promise((resolve) => {
+      const out = [];
+      const tx = this.db.transaction(GAMES_STORE, 'readonly');
+      const st = tx.objectStore(GAMES_STORE);
+      for (const id of ids) {
+        const q = st.get(id);
+        q.onsuccess = () => { if (q.result) out.push(q.result); };
+      }
+      tx.oncomplete = () => resolve(out);
+      tx.onerror = () => resolve(out);
+      tx.onabort = () => resolve(out);
+    });
+  }
+
   async deleteGameRecords(ids) {
     await this.open();
     if (!this.db) {

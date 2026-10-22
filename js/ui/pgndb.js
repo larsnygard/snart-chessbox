@@ -8,7 +8,8 @@
 
 import { store } from './store.js';
 import { splitGames, parseGame, buildPGN, ratingsFrom, ratingInRange } from '../core/pgn.js';
-import { sanToUci } from '../core/chessutil.js';
+import { sanToUci, START_FEN } from '../core/chessutil.js';
+import { positionKey, normaliseFen, matchPly } from '../core/possearch.js';
 import { createZip, readZipTexts } from '../core/zip.js';
 
 const META_KEY = 'pgnMeta';
@@ -233,6 +234,42 @@ export async function searchGames(opts = {}) {
   else if (sort === 'white') filtered.sort((a, b) => a.whiteLower.localeCompare(b.whiteLower));
   else if (sort === 'plies') filtered.sort((a, b) => b.plies - a.plies);
   return { total: filtered.length, games: filtered.slice(offset, offset + limit) };
+}
+
+/**
+ * Games that reach a position: the cheap metadata filters run first, then every
+ * surviving game is replayed and compared ply by ply (js/core/possearch.js).
+ * Returns `{ ok, reason, total, scanned, games }` — `games` rows carry `ply`, the
+ * half-move at which the position first appears.
+ */
+export async function searchPosition(fen, opts = {}) {
+  const target = positionKey(normaliseFen(fen) || '');
+  if (!target) return { ok: false, reason: 'bad-fen', total: 0, scanned: 0, games: [] };
+  const {
+    limit = 200000, offset = 0, onProgress = null, batch = 150, maxScan = 40000,
+  } = opts;
+  if (importing) return { ok: false, reason: 'busy', total: 0, scanned: 0, games: [] };
+  // every other filter still applies; limit is lifted because we page afterwards
+  const candidates = (await searchGames({ ...opts, limit: 1000000, offset: 0 })).games.slice(0, maxScan);
+  const matches = [];
+  for (let i = 0; i < candidates.length; i += batch) {
+    const slice = candidates.slice(i, i + batch);
+    const records = await store.getGameRecords(slice.map((m) => m.id));
+    const byId = new Map(records.map((r) => [r.id, r]));
+    for (const m of slice) {
+      const rec = byId.get(m.id);
+      if (!rec) continue;
+      const ply = matchPly(target, rec.startFen || START_FEN, rec.moves || []);
+      if (ply >= 0) matches.push({ ...m, ply });
+    }
+    if (onProgress) onProgress(Math.min(i + batch, candidates.length), candidates.length, matches.length);
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  return {
+    ok: true, total: matches.length, scanned: candidates.length,
+    capped: candidates.length >= maxScan,
+    games: matches.slice(offset, offset + limit),
+  };
 }
 
 export async function getGame(id) { return store.getGame(id); }

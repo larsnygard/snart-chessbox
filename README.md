@@ -128,6 +128,12 @@ the whole app (engine included) is cached by a service worker so it works on a p
   year range, result, ECO and minimum length; review a game,
   send it to memory training, export the filtered set as PGN, **copy the result set into a new
   database**, or build a repertoire from it.
+- **Search by position**: paste a FEN — or press **Board…** next to the field to set the pieces up on
+  a board and take that position — and every candidate game is replayed to find the ones that reach
+  it. "Same position" means the same pieces with the same side to move; castling rights, the en
+  passant square and the clocks are ignored, so a transposition still matches. Each result says at
+  which move the position occurs, and the other filters (players, years, ratings) narrow the scan
+  first. 10,000 games replay in about a second.
 - **Rating ranges per colour**: White Elo and Black Elo each take a minimum and a maximum, so
   `2000–2300` and `2700+` (fill only "from") are both one filter. Ratings are read from the
   PGN's `WhiteElo`/`BlackElo` headers and shown next to the names in the results; a game whose
