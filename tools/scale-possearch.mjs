@@ -7,10 +7,12 @@
 //   python3 -m http.server 8741 &
 //   node tools/scale-possearch.mjs
 //
-// What it should print (2026-10, chess.js ~6,200 moves/s):
-//   first search  → ~100 s: builds the position index once (progress bar says so)
-//   second search → tens of milliseconds: a hash lookup into that index
-// If the second search is slow, the index is not being read back — that is a bug.
+// What it should print (2026-10):
+//   first search  → tens of ms: the import built the index as it imported
+//   second search → tens of ms
+// A database imported *before* the index existed pays a one-time build (~110 s for
+// 9,834 games, progress bar in the search card) and is instant afterwards. If both
+// searches are slow, the index is not being stored or read back — that is a bug.
 import { chromium } from 'playwright';
 
 const BASE = process.argv[2] || 'http://127.0.0.1:8741/';

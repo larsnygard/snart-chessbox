@@ -202,7 +202,17 @@ export async function importPGNText(text, { source = '', dbId = null, onProgress
     // a database that already has a position index gets the new games appended, so
     // the next search stays instant instead of rebuilding
     let indexed = false;
-    try { indexed = await appendToPositionIndex(target, indexEntries); } catch (e) { indexed = false; }
+    try {
+      const existing = await readPositionIndex(target);
+      if (existing) {
+        indexed = await appendToPositionIndex(target, indexEntries);
+      } else if (!all.some((m) => dbOf(m) === target)) {
+        // the database was empty: this import covers all of it, so the position
+        // hashes parseGame collected are the whole index (no extra replay)
+        await assemblePositionIndex(target, indexEntries);
+        indexed = true;
+      }
+    } catch (e) { indexed = false; }
     if (onProgress) onProgress(raws.length, raws.length, added);
     return { added, skipped, duplicates, rated, indexed, total: raws.length };
   } finally {
@@ -280,13 +290,33 @@ export async function dropPositionIndex(dbId = null) {
   await store.del(posKey(dbId || activeDbId()));
 }
 
+/** Assemble and store the index from per-game hash arrays. */
+async function assemblePositionIndex(dbId, entries) {
+  const ids = [];
+  const counts = [];
+  let total = 0;
+  for (const e of entries) {
+    if (!e.hashes || !e.hashes.length) continue;
+    ids.push(e.id);
+    counts.push(e.hashes.length);
+    total += e.hashes.length;
+  }
+  const hashes = new Uint32Array(total);
+  let at = 0;
+  for (const e of entries) {
+    if (!e.hashes || !e.hashes.length) continue;
+    hashes.set(e.hashes, at);
+    at += e.hashes.length;
+  }
+  const index = { v: POS_VERSION, dbId, ids, counts, hashes };
+  await store.set(posKey(dbId), index);
+  return index;
+}
+
 /** Walk every game of a database and hash the positions it passes through. */
 async function buildPositionIndex(dbId, { onProgress = null, batch = 120 } = {}) {
   const rows = (await loadMeta()).filter((m) => dbOf(m) === dbId);
-  const ids = [];
-  const counts = [];
-  const chunks = [];
-  let done = 0;
+  const entries = [];
   for (let i = 0; i < rows.length; i += batch) {
     const slice = rows.slice(i, i + batch);
     const records = await store.getGameRecords(slice.map((m) => m.id));
@@ -294,23 +324,12 @@ async function buildPositionIndex(dbId, { onProgress = null, batch = 120 } = {})
     for (const m of slice) {
       const rec = byId.get(m.id);
       if (!rec) continue;
-      const hashes = gamePositionHashes(rec.startFen || START_FEN, rec.moves || []);
-      if (!hashes.length) continue;
-      ids.push(m.id);
-      counts.push(hashes.length);
-      chunks.push(hashes);
-      done++;
+      entries.push({ id: m.id, hashes: gamePositionHashes(rec.startFen || START_FEN, rec.moves || []) });
     }
-    if (onProgress) onProgress(Math.min(i + batch, rows.length), rows.length, done);
+    if (onProgress) onProgress(Math.min(i + batch, rows.length), rows.length, entries.length);
     await new Promise((r) => setTimeout(r, 0));
   }
-  const total = counts.reduce((a, b) => a + b, 0);
-  const hashes = new Uint32Array(total);
-  let at = 0;
-  for (const chunk of chunks) { hashes.set(chunk, at); at += chunk.length; }
-  const index = { v: POS_VERSION, dbId, ids, counts, hashes };
-  await store.set(posKey(dbId), index);
-  return index;
+  return assemblePositionIndex(dbId, entries);
 }
 
 /** Build the index if the database has none (one-time, resumable by the caller). */

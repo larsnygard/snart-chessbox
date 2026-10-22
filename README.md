@@ -134,10 +134,11 @@ the whole app (engine included) is cached by a service worker so it works on a p
   passant square and the clocks are ignored, so a transposition still matches. Each result says at
   which move the position occurs, and the other filters (players, years, ratings) narrow the
   result. Searching is **indexed, like a database should be**: the first search builds a
-  position index once (about a minute for 10,000 games, with a progress bar) and every search
-  after it is a hash lookup that answers in milliseconds. New imports are appended to the
-  index; deleting games or copying a result set into another database rebuilds it on the next
-  search.
+  position index as it imports — so a freshly loaded collection is searchable in milliseconds
+  from the first search — and every search is a hash lookup. A collection imported before this
+  version builds the index once on its first position search (about a minute for 10,000 games,
+  with a progress bar). New imports are appended to the index; deleting games or copying a
+  result set into another database rebuilds it on the next search.
 - **Rating ranges per colour**: White Elo and Black Elo each take a minimum and a maximum, so
   `2000–2300` and `2700+` (fill only "from") are both one filter. Ratings are read from the
   PGN's `WhiteElo`/`BlackElo` headers and shown next to the names in the results; a game whose
