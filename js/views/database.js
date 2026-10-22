@@ -391,7 +391,7 @@ export function render(host) {
             title: 'Set the pieces up on a board and use that position',
             onclick: () => toggleSetup(),
           }))),
-      el('div', { class: 'faint', style: 'font-size:.76rem;margin:-4px 0 6px', html: 'Finds the games that reach this position — same pieces, same side to move. Castling rights, the en passant square and the clocks are ignored. Leave it empty to search by name, year or rating.' }),
+      el('div', { class: 'faint', style: 'font-size:.76rem;margin:-4px 0 6px', html: 'Finds the games that reach this position — same pieces, same side to move; castling rights, the en passant square and the clocks are ignored. Indexed like a proper database, so the first search builds the index once and every search after it is instant.' }),
       el('div', { class: 'row' },
         el('button', { class: 'btn primary', html: `${icon('search')}<span>Search</span>`, onclick: () => runSearch(true) }),
         el('div', { class: 'spacer' }),
@@ -463,6 +463,10 @@ export function render(host) {
         ...searchOpts(),
         startIndex: posScan.nextIndex,
         budgetMs,
+        onBuildProgress: (done, all, games) => {
+          bar.querySelector('i').style.width = `${all ? Math.round((done / all) * 100) : 0}%`;
+          status.textContent = `Building the position index — one time only: ${done} of ${all} games (${games} indexed)…`;
+        },
         onProgress: (done, all, found) => {
           bar.querySelector('i').style.width = `${all ? Math.round((done / all) * 100) : 0}%`;
           status.textContent = `Replayed ${done} of ${all} games — ${found} hold that position`;
@@ -483,6 +487,9 @@ export function render(host) {
     posScan.done = res.done;
     posScan.matches = posScan.matches.concat(res.games);
     posScan.capped = res.capped;
+    posScan.indexed = !!res.indexed;
+    posScan.positions = res.positions || 0;
+    posScan.gamesIndexed = res.gamesIndexed || 0;
     matches = posScan.matches;
     total = matches.length;
     scanned = res.scanned;
@@ -510,9 +517,11 @@ export function render(host) {
     resultBox.append(head);
     if (posMode) {
       const partial = posScan && !posScan.done;
-      const note = partial
-        ? `Scanned ${scanned} of ${posScan.candidateCount} games so far — searching the whole database at once would freeze the app, so it works in steps.`
-        : `Replayed ${scanned} game${scanned === 1 ? '' : 's'} to find them${capped ? ' — stopped at the scan limit, narrow the other filters for a full sweep' : ''}.`;
+      const note = posScan && posScan.indexed
+        ? `Instant: a hash lookup into the position index (${posScan.gamesIndexed.toLocaleString()} games, ${posScan.positions.toLocaleString()} positions), then your other filters.`
+        : partial
+          ? `Scanned ${scanned} of ${posScan.candidateCount} games so far — searching the whole database at once would freeze the app, so it works in steps.`
+          : `Replayed ${scanned} game${scanned === 1 ? '' : 's'} to find them${capped ? ' — stopped at the scan limit, narrow the other filters for a full sweep' : ''}.`;
       resultBox.append(el('div', { class: 'faint', style: 'font-size:.76rem;margin-bottom:10px', text: note }));
       if (partial) {
         resultBox.append(el('div', { class: 'row', style: 'gap:8px;margin-bottom:10px;flex-wrap:wrap' },

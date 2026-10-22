@@ -132,10 +132,12 @@ the whole app (engine included) is cached by a service worker so it works on a p
   a board and take that position — and every candidate game is replayed to find the ones that reach
   it. "Same position" means the same pieces with the same side to move; castling rights, the en
   passant square and the clocks are ignored, so a transposition still matches. Each result says at
-  which move the position occurs, and the other filters (players, years, ratings) narrow the scan
-  first. A position search is a replay, not an index: ~6,000 moves a second, so a 10,000-game
-  collection takes a couple of minutes. It works in steps — the first matches appear within
-  seconds and a **Scan the rest of the database** button finishes the sweep with a progress bar.
+  which move the position occurs, and the other filters (players, years, ratings) narrow the
+  result. Searching is **indexed, like a database should be**: the first search builds a
+  position index once (about a minute for 10,000 games, with a progress bar) and every search
+  after it is a hash lookup that answers in milliseconds. New imports are appended to the
+  index; deleting games or copying a result set into another database rebuilds it on the next
+  search.
 - **Rating ranges per colour**: White Elo and Black Elo each take a minimum and a maximum, so
   `2000–2300` and `2700+` (fill only "from") are both one filter. Ratings are read from the
   PGN's `WhiteElo`/`BlackElo` headers and shown next to the names in the results; a game whose

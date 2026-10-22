@@ -4,6 +4,7 @@
 
 import { Chess } from '../../vendor/chess.mjs';
 import { START_FEN, applySan } from './chessutil.js';
+import { positionKey, hashKey } from './possearch.js';
 
 const RESULT_TOKENS = new Set(['1-0', '0-1', '1/2-1/2', '*', '½-½']);
 
@@ -89,15 +90,19 @@ export function parseGame(raw, fallbackFen = START_FEN) {
   const moves = [];
   const ucis = [];
   const errors = [];
+  // the position hashes come free here: the loop already has the FEN of every ply,
+  // and this is what lets an import fill the position index without a second replay
+  const hashes = [hashKey(positionKey(fen))];
   for (const san of tokens) {
     const r = applySan(fen, san);
     if (!r) { errors.push(san); break; }
     moves.push(r.san);
     ucis.push(r.from + r.to + (r.promo || ''));
     fen = r.fen;
+    hashes.push(hashKey(positionKey(fen)));
   }
   const result = headers.Result && RESULT_TOKENS.has(headers.Result) ? headers.Result : guessResult(raw);
-  return { headers, startFen, moves, ucis, fen, result, errors, raw };
+  return { headers, startFen, moves, ucis, fen, result, errors, raw, posHashes: Uint32Array.from(hashes) };
 }
 
 /**

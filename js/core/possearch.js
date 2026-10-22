@@ -95,3 +95,61 @@ export function findPosition(fen, games) {
   }
   return out;
 }
+
+/** FNV-1a over a position key — the 32 bits the index stores per position. */
+export function hashKey(key) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/**
+ * Every position a game passes through, as hashes: [start, after ply 1, ...].
+ * This is what an index stores, so a later search is a table lookup instead of a
+ * replay (SCID's approach).
+ */
+export function gamePositionHashes(startFen, sans) {
+  const out = [];
+  let chess;
+  try { chess = new Chess(startFen || START_FEN); } catch (e) { return new Uint32Array(0); }
+  out.push(hashKey(positionKey(chess.fen())));
+  for (const san of sans || []) {
+    let done;
+    try { done = chess.move(san); } catch (e) { break; }
+    if (!done) break;
+    out.push(hashKey(positionKey(chess.fen())));
+  }
+  return Uint32Array.from(out);
+}
+
+/** Where each game's hashes start inside the flattened array. */
+export function indexOffsets(counts) {
+  const out = new Array(counts.length);
+  let at = 0;
+  for (let i = 0; i < counts.length; i++) { out[i] = at; at += counts[i]; }
+  return out;
+}
+
+/**
+ * All `{ game, ply }` where the hash occurs. A hash is 32 bits, so a collision is
+ * possible (about 1 in 5,000 over a large collection) — callers verify the rows
+ * they show with matchPly().
+ */
+export function lookupHashes(hashes, offsets, counts, target) {
+  const hits = [];
+  const n = offsets.length;
+  for (let i = 0; i < hashes.length; i++) {
+    if (hashes[i] !== target) continue;
+    let lo = 0;
+    let hi = n - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (offsets[mid] <= i) lo = mid; else hi = mid - 1;
+    }
+    if (counts[lo] > 0 && i - offsets[lo] < counts[lo]) hits.push({ game: lo, ply: i - offsets[lo] });
+  }
+  return hits;
+}

@@ -69,7 +69,7 @@ async function searchFen(fen) {
   await page.locator('button:has-text("Search")').first().click();
   await page.waitForFunction(() => /reach that position|found/.test(document.body.textContent), null, { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(1200);
-  return { head: await headText(), rows: await rows(), note: await page.evaluate(() => ([...document.querySelectorAll('.faint')].map((e) => e.textContent).find((t) => /Replayed/.test(t))) || '') };
+  return { head: await headText(), rows: await rows(), note: await page.evaluate(() => ([...document.querySelectorAll('.faint')].map((e) => e.textContent).find((t) => /Replayed|Scanned|Instant:/.test(t))) || '') };
 }
 
 await goto('#/database');
@@ -84,7 +84,18 @@ let res = await searchFen(italian4);
 check('the search switches to position mode', /reach that position/.test(res.head), res.head);
 check('exactly the Italian game is found', /1 game/.test(res.head) && res.rows.length === 1 && /White, Wendy/.test(res.rows[0]), res.rows[0] && res.rows[0].slice(0, 70));
 check('the row says where the position occurs', /reached at move 2/.test(res.rows[0] || ''), (res.rows[0] || '').slice(-40));
-check('the scan reports how many games it replayed', /Replayed 3 games/.test(res.note), res.note);
+check('the search reports the indexed lookup', /Instant: a hash lookup into the position index/.test(res.note), res.note);
+
+// ---- the index makes the next search instant, and new imports join it
+const timed = await page.evaluate(async () => {
+  const t0 = performance.now();
+  document.querySelector('button:has-text("Search")');
+  return t0;
+}).catch(() => 0);
+const t0 = Date.now();
+await page.locator('button:has-text("Search")').first().click();
+await page.waitForFunction(() => [...document.querySelectorAll('.faint')].some((e) => /Instant:/.test(e.textContent)), null, { timeout: 20000 }).catch(() => {});
+check('a second search is instant', Date.now() - t0 < 1500, `${Date.now() - t0} ms`);
 
 // ---- the starting position is in every game
 res = await searchFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1');
@@ -104,6 +115,18 @@ await page.locator('label.field:has-text("White player") input').fill('Sicil');
 await page.locator('button:has-text("Search")').first().click();
 await page.waitForTimeout(1500);
 check('the name filters narrow the position search', /1 game/.test(await headText()), await headText());
+
+// ---- a new import is appended to the index, not a rebuild
+const extra = `\n\n[Event "Late arrival"]\n[Site "?"]\n[Date "2023.04.04"]\n[White "Late, Larry"]\n[Black "Extra, Eve"]\n[Result "1-0"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 1-0`;
+await page.locator('.card textarea').first().fill(extra);
+await page.locator('button:has-text("Import pasted PGN")').click();
+await page.waitForTimeout(2500);
+await page.locator('label.field:has-text("White player") input').fill('');
+await fenInput().fill(italian4);
+const t1 = Date.now();
+await page.locator('button:has-text("Search")').first().click();
+await page.waitForFunction((n) => [...document.querySelectorAll('.h3, h3')].some((e) => /reach that position/.test(e.textContent)) && document.querySelectorAll('.game-list .list-item').length >= n, 2, { timeout: 20000 }).catch(() => {});
+check('a freshly imported game is found without a rebuild', /2 games/.test(await headText()) && Date.now() - t1 < 4000, `${await headText()} (${Date.now() - t1} ms)`);
 await page.locator('label.field:has-text("White player") input').fill('');
 await page.waitForTimeout(200);
 
@@ -130,7 +153,7 @@ await page.locator('button:has-text("Use position")').click();
 await page.waitForTimeout(2000);
 const startFen = await fenInput().inputValue();
 check('the start position builds the standard FEN', /^rnbqkbnr\/pppppppp\/8\/8\/8\/8\/PPPPPPPP\/RNBQKBNR w /.test(startFen), startFen);
-check('and every game is found again', /3 games/.test(await headText()), await headText());
+check('and every game is found again', /4 games/.test(await headText()), await headText());
 
 check('no console errors', errors.length === 0, errors.slice(0, 4).join(' | '));
 await browser.close();

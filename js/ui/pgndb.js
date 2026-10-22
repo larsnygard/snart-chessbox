@@ -9,12 +9,17 @@
 import { store } from './store.js';
 import { splitGames, parseGame, buildPGN, ratingsFrom, ratingInRange } from '../core/pgn.js';
 import { sanToUci, START_FEN } from '../core/chessutil.js';
-import { positionKey, normaliseFen, matchPly } from '../core/possearch.js';
+import {
+  positionKey, normaliseFen, matchPly,
+  hashKey, gamePositionHashes, indexOffsets, lookupHashes,
+} from '../core/possearch.js';
 import { createZip, readZipTexts } from '../core/zip.js';
 
 const META_KEY = 'pgnMeta';
 const DBS_KEY = 'pgnDbs';
 const ACTIVE_KEY = 'scb.pgnDb';
+const POS_VERSION = 1;
+const posKey = (dbId) => `posIdx:${dbId}`;
 export const DEFAULT_DB = 'main';
 
 let meta = null;
@@ -97,6 +102,7 @@ export async function deleteDatabase(id) {
   if (ids.length) await store.deleteGameRecords(ids);
   meta = all.filter((m) => dbOf(m) !== id);
   dbs = dbs.filter((d) => d.id !== id);
+  await dropPositionIndex(id).catch(() => {});
   await store.set(META_KEY, meta);
   await store.set(DBS_KEY, dbs);
   if (activeDbId() === id) await setActiveDb(dbs[0].id);
@@ -128,6 +134,7 @@ export async function importPGNText(text, { source = '', dbId = null, onProgress
     const existing = new Set(all.filter((m) => dbOf(m) === target).map((m) => m.key));
     const metaByKey = new Map(all.filter((m) => dbOf(m) === target).map((m) => [m.key, m]));
     const newMeta = [];
+    const indexEntries = [];
     let added = 0, skipped = 0, duplicates = 0, rated = 0;
     let batch = [];
     for (let i = 0; i < raws.length && added < max; i++) {
@@ -180,6 +187,7 @@ export async function importPGNText(text, { source = '', dbId = null, onProgress
         year, result: record.result, eco: record.eco, plies: parsed.moves.length, source,
         whiteElo: elo.whiteElo, blackElo: elo.blackElo,
       });
+      if (parsed.posHashes && parsed.posHashes.length) indexEntries.push({ id, hashes: parsed.posHashes });
       added++;
       if (batch.length >= chunk) {
         await store.putGameRecords(batch);
@@ -191,8 +199,12 @@ export async function importPGNText(text, { source = '', dbId = null, onProgress
     if (batch.length) await store.putGameRecords(batch);
     meta = all.concat(newMeta);
     await store.set(META_KEY, meta);
+    // a database that already has a position index gets the new games appended, so
+    // the next search stays instant instead of rebuilding
+    let indexed = false;
+    try { indexed = await appendToPositionIndex(target, indexEntries); } catch (e) { indexed = false; }
     if (onProgress) onProgress(raws.length, raws.length, added);
-    return { added, skipped, duplicates, rated, total: raws.length };
+    return { added, skipped, duplicates, rated, indexed, total: raws.length };
   } finally {
     importing = false;
   }
@@ -242,16 +254,157 @@ export async function searchGames(opts = {}) {
  * Returns `{ ok, reason, total, scanned, games }` — `games` rows carry `ply`, the
  * half-move at which the position first appears.
  */
+// ---------------------------------------------------------------- position index
+//
+// A FEN cannot say which move order produced it, so a naive position search has to
+// replay every game (~110 s for 10,000 games with chess.js). The index does that
+// once, at import time or on the first search, and keeps one 32-bit hash per
+// position per game: searching then costs a table lookup. This is how SCID feels
+// instant on the same collection.
+
+/** { v, dbId, ids: string[], counts: number[], hashes: Uint32Array } or null. */
+export async function readPositionIndex(dbId = null) {
+  const target = dbId || activeDbId();
+  const raw = await store.get(posKey(target), null);
+  if (!raw || raw.v !== POS_VERSION || raw.dbId !== target) return null;
+  if (!(raw.hashes instanceof Uint32Array) || !Array.isArray(raw.ids)) return null;
+  return raw;
+}
+
+export async function positionIndexInfo(dbId = null) {
+  const idx = await readPositionIndex(dbId);
+  return idx ? { games: idx.ids.length, positions: idx.hashes.length } : null;
+}
+
+export async function dropPositionIndex(dbId = null) {
+  await store.del(posKey(dbId || activeDbId()));
+}
+
+/** Walk every game of a database and hash the positions it passes through. */
+async function buildPositionIndex(dbId, { onProgress = null, batch = 120 } = {}) {
+  const rows = (await loadMeta()).filter((m) => dbOf(m) === dbId);
+  const ids = [];
+  const counts = [];
+  const chunks = [];
+  let done = 0;
+  for (let i = 0; i < rows.length; i += batch) {
+    const slice = rows.slice(i, i + batch);
+    const records = await store.getGameRecords(slice.map((m) => m.id));
+    const byId = new Map(records.map((r) => [r.id, r]));
+    for (const m of slice) {
+      const rec = byId.get(m.id);
+      if (!rec) continue;
+      const hashes = gamePositionHashes(rec.startFen || START_FEN, rec.moves || []);
+      if (!hashes.length) continue;
+      ids.push(m.id);
+      counts.push(hashes.length);
+      chunks.push(hashes);
+      done++;
+    }
+    if (onProgress) onProgress(Math.min(i + batch, rows.length), rows.length, done);
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  const total = counts.reduce((a, b) => a + b, 0);
+  const hashes = new Uint32Array(total);
+  let at = 0;
+  for (const chunk of chunks) { hashes.set(chunk, at); at += chunk.length; }
+  const index = { v: POS_VERSION, dbId, ids, counts, hashes };
+  await store.set(posKey(dbId), index);
+  return index;
+}
+
+/** Build the index if the database has none (one-time, resumable by the caller). */
+export async function ensurePositionIndex(dbId = null, { onBuildProgress = null } = {}) {
+  const target = dbId || activeDbId();
+  const existing = await readPositionIndex(target);
+  if (existing) return { index: existing, built: false };
+  const index = await buildPositionIndex(target, { onProgress: onBuildProgress });
+  return { index, built: true };
+}
+
+/** Add the games of a fresh import to an existing index (no rebuild needed). */
+async function appendToPositionIndex(dbId, entries) {
+  const idx = await readPositionIndex(dbId);
+  if (!idx || !entries.length) return false;
+  const extra = entries.reduce((n, e) => n + e.hashes.length, 0);
+  const hashes = new Uint32Array(idx.hashes.length + extra);
+  hashes.set(idx.hashes, 0);
+  let at = idx.hashes.length;
+  for (const e of entries) { hashes.set(e.hashes, at); at += e.hashes.length; }
+  const next = {
+    v: POS_VERSION,
+    dbId,
+    ids: idx.ids.concat(entries.map((e) => e.id)),
+    counts: idx.counts.concat(entries.map((e) => e.hashes.length)),
+    hashes,
+  };
+  await store.set(posKey(dbId), next);
+  return true;
+}
+
+/**
+ * Games that reach a position. Instant when the index exists (built once, then a
+ * hash lookup); falls back to the budgeted replay scan if the index cannot be read
+ * or written (quota, private mode).
+ */
 export async function searchPosition(fen, opts = {}) {
   const target = positionKey(normaliseFen(fen) || '');
   if (!target) return { ok: false, reason: 'bad-fen', done: true, total: 0, scanned: 0, candidateCount: 0, nextIndex: 0, games: [] };
-  const {
-    limit = 200000, batch = 150, maxScan = 40000,
-    startIndex = 0, budgetMs = 8000, onProgress = null,
-  } = opts;
   if (importing) return { ok: false, reason: 'busy', done: true, total: 0, scanned: 0, candidateCount: 0, nextIndex: 0, games: [] };
-  // every other filter still applies; limit is lifted because we page afterwards
+  const {
+    limit = 200000, dbId = null, onBuildProgress = null, onProgress = null,
+    startIndex = 0, budgetMs = 8000, batch = 150, maxScan = 40000,
+  } = opts;
+  const database = dbId || activeDbId();
+
+  // every other filter still applies; the index only answers "which games"
   const candidates = (await searchGames({ ...opts, limit: 1000000, offset: 0 })).games.slice(0, maxScan);
+
+  let index = null;
+  let built = false;
+  try {
+    const ensured = await ensurePositionIndex(database, { onBuildProgress });
+    index = ensured.index;
+    built = ensured.built;
+  } catch (e) {
+    index = null; // fall through to the replay scan below
+  }
+
+  if (index) {
+    const offsets = indexOffsets(index.counts);
+    const hits = lookupHashes(index.hashes, offsets, index.counts, hashKey(target));
+    const wanted = new Map();
+    for (const hit of hits) {
+      const id = index.ids[hit.game];
+      if (id) wanted.set(id, hit.ply);
+    }
+    const matches = [];
+    const verifyBudget = limit + 20;
+    let verified = 0;
+    for (const m of candidates) {
+      if (!wanted.has(m.id)) continue;
+      const ply = wanted.get(m.id);
+      // a 32-bit hash can collide; confirm the rows we are about to show
+      if (verified < verifyBudget) {
+        verified++;
+        const rec = await store.getGame(m.id);
+        const real = rec ? matchPly(target, rec.startFen || START_FEN, rec.moves || []) : -1;
+        if (real < 0) continue;
+        matches.push({ ...m, ply: real });
+        continue;
+      }
+      matches.push({ ...m, ply });
+    }
+    return {
+      ok: true, done: true, built, indexed: true,
+      total: matches.length, scanned: candidates.length,
+      candidateCount: candidates.length, nextIndex: candidates.length,
+      positions: index.hashes.length, gamesIndexed: index.ids.length,
+      games: matches.slice(0, limit),
+    };
+  }
+
+  // ---- fallback: replay the candidates in budgeted steps (no index available)
   const matches = [];
   const started = Date.now();
   const from = Math.max(0, Math.min(startIndex, candidates.length));
@@ -269,13 +422,12 @@ export async function searchPosition(fen, opts = {}) {
     processed = Math.min(i + slice.length, candidates.length);
     if (onProgress) onProgress(processed, candidates.length, matches.length);
     await new Promise((r) => setTimeout(r, 0));
-    // a scan of a big database takes minutes; hand the caller what is found and
-    // let it decide whether to keep going (resume with startIndex)
     if (Date.now() - started > budgetMs) break;
   }
   const done = processed >= candidates.length;
   return {
-    ok: true, done, scanned: processed, candidateCount: candidates.length,
+    ok: true, done, built: false, indexed: false,
+    scanned: processed, candidateCount: candidates.length,
     nextIndex: done ? candidates.length : processed,
     total: matches.length, capped: candidates.length >= maxScan,
     games: matches.slice(0, limit),
@@ -369,6 +521,7 @@ export async function copyGamesToDatabase(rows, targetDbId, { source = 'copied' 
     await store.putGameRecords(records);
     meta = all.concat(newMeta);
     await store.set(META_KEY, meta);
+    await dropPositionIndex(targetDbId).catch(() => {}); // rebuilt on the next search
   }
   return records.length;
 }
@@ -383,6 +536,7 @@ export async function createDatabaseFromRows(rows, name) {
 // ---------------------------------------------------------------- misc
 export async function deleteAllGames(dbId = null) {
   const target = dbId || activeDbId();
+  await dropPositionIndex(target).catch(() => {});
   const all = await loadMeta();
   const ids = all.filter((m) => dbOf(m) === target).map((m) => m.id);
   if (ids.length) await store.deleteGameRecords(ids);
@@ -391,9 +545,12 @@ export async function deleteAllGames(dbId = null) {
 }
 
 export async function deleteGames(ids) {
+  const gone = new Set(ids);
+  const affected = new Set((await loadMeta()).filter((m) => gone.has(m.id)).map((m) => dbOf(m)));
   await store.deleteGameRecords(ids);
   meta = (await loadMeta()).filter((m) => !ids.includes(m.id));
   await store.set(META_KEY, meta);
+  for (const dbId of affected) await dropPositionIndex(dbId).catch(() => {});
 }
 
 export async function toGameObjects(rows) {

@@ -5,7 +5,7 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.16.0-beta.1';
+export const VERSION = '1.17.0-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
 export const BUILD = '2026-10-20';
 export const IS_BETA = CHANNEL === 'beta';
@@ -21,6 +21,16 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.17.0-beta.1',
+    date: '2026-10-21',
+    channel: 'beta',
+    notes: [
+      'Position search in the PGN database is now indexed, the way SCID does it: the first search builds a position index once (about a minute for 10,000 games, with progress) and every search after that is instant — one hash lookup instead of replaying the games.',
+      'Freshly imported games are appended to the index, so a new collection is searchable immediately; deleting games or copying a result set into another database rebuilds it on the next search.',
+      'The old step-by-step replay is still there as a fallback for browsers where the index cannot be stored, with the "Scan the rest" button.',
+    ],
+  },
   {
     version: '1.16.0-beta.1',
     date: '2026-10-21',
