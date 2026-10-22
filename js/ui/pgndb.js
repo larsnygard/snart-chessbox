@@ -244,15 +244,19 @@ export async function searchGames(opts = {}) {
  */
 export async function searchPosition(fen, opts = {}) {
   const target = positionKey(normaliseFen(fen) || '');
-  if (!target) return { ok: false, reason: 'bad-fen', total: 0, scanned: 0, games: [] };
+  if (!target) return { ok: false, reason: 'bad-fen', done: true, total: 0, scanned: 0, candidateCount: 0, nextIndex: 0, games: [] };
   const {
-    limit = 200000, offset = 0, onProgress = null, batch = 150, maxScan = 40000,
+    limit = 200000, batch = 150, maxScan = 40000,
+    startIndex = 0, budgetMs = 8000, onProgress = null,
   } = opts;
-  if (importing) return { ok: false, reason: 'busy', total: 0, scanned: 0, games: [] };
+  if (importing) return { ok: false, reason: 'busy', done: true, total: 0, scanned: 0, candidateCount: 0, nextIndex: 0, games: [] };
   // every other filter still applies; limit is lifted because we page afterwards
   const candidates = (await searchGames({ ...opts, limit: 1000000, offset: 0 })).games.slice(0, maxScan);
   const matches = [];
-  for (let i = 0; i < candidates.length; i += batch) {
+  const started = Date.now();
+  const from = Math.max(0, Math.min(startIndex, candidates.length));
+  let processed = from;
+  for (let i = from; i < candidates.length; i += batch) {
     const slice = candidates.slice(i, i + batch);
     const records = await store.getGameRecords(slice.map((m) => m.id));
     const byId = new Map(records.map((r) => [r.id, r]));
@@ -262,13 +266,19 @@ export async function searchPosition(fen, opts = {}) {
       const ply = matchPly(target, rec.startFen || START_FEN, rec.moves || []);
       if (ply >= 0) matches.push({ ...m, ply });
     }
-    if (onProgress) onProgress(Math.min(i + batch, candidates.length), candidates.length, matches.length);
+    processed = Math.min(i + slice.length, candidates.length);
+    if (onProgress) onProgress(processed, candidates.length, matches.length);
     await new Promise((r) => setTimeout(r, 0));
+    // a scan of a big database takes minutes; hand the caller what is found and
+    // let it decide whether to keep going (resume with startIndex)
+    if (Date.now() - started > budgetMs) break;
   }
+  const done = processed >= candidates.length;
   return {
-    ok: true, total: matches.length, scanned: candidates.length,
-    capped: candidates.length >= maxScan,
-    games: matches.slice(offset, offset + limit),
+    ok: true, done, scanned: processed, candidateCount: candidates.length,
+    nextIndex: done ? candidates.length : processed,
+    total: matches.length, capped: candidates.length >= maxScan,
+    games: matches.slice(0, limit),
   };
 }
 

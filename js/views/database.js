@@ -31,6 +31,7 @@ export function render(host) {
   let capped = false;      // the scan hit its ceiling
   let setupEditor = null;  // the board used to build a FEN
   let setupOpen = false;
+  let posScan = null;      // resumable position scan: { fen, nextIndex, candidateCount, done, matches }
 
   const dbBar = el('div');
   const importCard = el('div', { class: 'card', style: 'margin-bottom:14px' });
@@ -444,8 +445,11 @@ export function render(host) {
   }
 
   /** Replay every game the cheap filters leave, and keep those that reach the FEN. */
-  async function runPositionSearch(reset, fen) {
+  async function runPositionSearch(reset, fen, { budgetMs = 8000 } = {}) {
     if (!positionKey(normaliseFen(fen))) { toast('That FEN is not a valid position', 'bad'); return; }
+    if (reset || !posScan || posScan.fen !== fen) {
+      posScan = { fen, nextIndex: 0, candidateCount: 0, done: false, matches: [] };
+    }
     if (reset) { offset = 0; results = []; matches = []; }
     const bar = el('div', { class: 'meter', style: 'margin-top:10px' }, el('i', { style: 'width:0%' }));
     const status = el('div', { class: 'dim', style: 'font-size:.82rem', text: 'Replaying the games…' });
@@ -457,6 +461,8 @@ export function render(host) {
     try {
       res = await searchPosition(fen, {
         ...searchOpts(),
+        startIndex: posScan.nextIndex,
+        budgetMs,
         onProgress: (done, all, found) => {
           bar.querySelector('i').style.width = `${all ? Math.round((done / all) * 100) : 0}%`;
           status.textContent = `Replayed ${done} of ${all} games — ${found} hold that position`;
@@ -472,8 +478,13 @@ export function render(host) {
       toast('That FEN is not a valid position', 'bad');
       return;
     }
-    matches = res.games;
-    total = res.total;
+    posScan.candidateCount = res.candidateCount;
+    posScan.nextIndex = res.nextIndex;
+    posScan.done = res.done;
+    posScan.matches = posScan.matches.concat(res.games);
+    posScan.capped = res.capped;
+    matches = posScan.matches;
+    total = matches.length;
     scanned = res.scanned;
     capped = !!res.capped;
     results = matches.slice(0, limit);
@@ -481,18 +492,36 @@ export function render(host) {
     drawResults();
   }
 
+  /** "3 games reach that position" / "12 games so far hold that position". */
+  function positionHeading() {
+    const n = `${total} game${total === 1 ? '' : 's'}`;
+    return posScan && !posScan.done ? `${n} so far hold that position` : `${n} reach that position`;
+  }
+
   function drawResults() {
     resultBox.innerHTML = '';
     const posMode = !!String(filters.fen || '').trim();
     const head = el('div', { class: 'row', style: 'margin-bottom:10px;flex-wrap:wrap;gap:8px' },
-      el('h3', { style: 'margin:0', text: posMode ? `${total} game${total === 1 ? '' : 's'} reach that position` : `${total} game${total === 1 ? '' : 's'} found` }),
+      el('h3', { style: 'margin:0', text: posMode ? positionHeading() : `${total} game${total === 1 ? '' : 's'} found` }),
       el('div', { class: 'spacer' }),
       el('button', { class: 'btn sm', html: `${icon('star')}<span>Build repertoire from these</span>`, onclick: () => buildRepertoireDialog(), disabled: total === 0 || undefined }),
       el('button', { class: 'btn sm', html: `${icon('plus')}<span>New database from these</span>`, title: 'Copy the full result set into its own database', onclick: () => newDbFromResults(), disabled: total === 0 || undefined }),
       el('button', { class: 'btn sm', html: `${icon('download')}<span>Export PGN</span>`, onclick: exportResults, disabled: total === 0 || undefined }));
     resultBox.append(head);
     if (posMode) {
-      resultBox.append(el('div', { class: 'faint', style: 'font-size:.76rem;margin-bottom:10px', text: `Replayed ${scanned} game${scanned === 1 ? '' : 's'} to find them${capped ? ' — stopped at the scan limit, narrow the other filters for a full sweep' : ''}.` }));
+      const partial = posScan && !posScan.done;
+      const note = partial
+        ? `Scanned ${scanned} of ${posScan.candidateCount} games so far — searching the whole database at once would freeze the app, so it works in steps.`
+        : `Replayed ${scanned} game${scanned === 1 ? '' : 's'} to find them${capped ? ' — stopped at the scan limit, narrow the other filters for a full sweep' : ''}.`;
+      resultBox.append(el('div', { class: 'faint', style: 'font-size:.76rem;margin-bottom:10px', text: note }));
+      if (partial) {
+        resultBox.append(el('div', { class: 'row', style: 'gap:8px;margin-bottom:10px;flex-wrap:wrap' },
+          el('button', {
+            class: 'btn sm primary', text: 'Scan the rest of the database',
+            onclick: () => runPositionSearch(false, posScan.fen, { budgetMs: 150000 }),
+          }),
+          el('span', { class: 'faint', style: 'font-size:.76rem', text: 'Takes a while on a large collection; the bar above shows it moving.' })));
+      }
     }
 
     if (!results.length) {

@@ -6,16 +6,21 @@ await p.waitForFunction(() => !document.getElementById('boot'), null, { timeout:
 await p.waitForTimeout(600);
 await p.locator('button:has-text("Load bundled example database")').click();
 await p.waitForFunction(() => /9,?8\d\d games/.test((document.querySelector('.card .badge') || {}).textContent || ''), null, { timeout: 240000 }).catch(() => {});
-console.log('db size:', await p.evaluate(() => (document.querySelector('.card .badge') || {}).textContent));
-for (const [label, fen] of [
-  ['start position (32 pieces)', 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1'],
-  ['Italian 4 plies (30 pieces)', 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 4'],
-  ['an endgame position', '8/8/8/4k3/8/8/4K3/6Q1 w - - 0 1'],
-]) {
-  await p.locator('input[placeholder^="Paste a FEN"]').fill(fen);
-  const t0 = Date.now();
-  await p.locator('button:has-text("Search")').first().click();
-  await p.waitForFunction(() => [...document.querySelectorAll('.faint')].some((e) => /to find them/.test(e.textContent)), null, { timeout: 240000 }).catch(() => {});
-  console.log(label, '→', Date.now() - t0, 'ms', await p.evaluate(() => ([...document.querySelectorAll('h3')].map((e) => e.textContent).find((t) => /reach/.test(t)))));
+console.log('db:', await p.evaluate(() => (document.querySelector('.card .badge') || {}).textContent));
+const noteText = () => p.evaluate(() => ([...document.querySelectorAll('.faint')].map((e) => e.textContent).find((t) => /Replayed|Scanned/.test(t))) || '');
+const headText = () => p.evaluate(() => ([...document.querySelectorAll('h3')].map((e) => e.textContent).find((t) => /position/.test(t))) || '');
+const fen = 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 4';
+await p.locator('input[placeholder^="Paste a FEN"]').fill(fen);
+let t0 = Date.now();
+await p.locator('button:has-text("Search")').first().click();
+await p.waitForFunction(() => [...document.querySelectorAll('.faint')].some((e) => /Scanned|Replayed/.test(e.textContent)), null, { timeout: 120000 }).catch(() => {});
+console.log('first step:', Date.now() - t0, 'ms |', await headText(), '|', await noteText());
+const btn = p.locator('button:has-text("Scan the rest of the database")');
+console.log('resume button present:', await btn.count());
+if (await btn.count()) {
+  t0 = Date.now();
+  await btn.click();
+  await p.waitForFunction(() => [...document.querySelectorAll('.faint')].some((e) => /^Replayed/.test(e.textContent)), null, { timeout: 600000 }).catch(() => {});
+  console.log('full scan:', Date.now() - t0, 'ms |', await headText(), '|', await noteText());
 }
 await b.close();

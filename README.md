@@ -133,7 +133,9 @@ the whole app (engine included) is cached by a service worker so it works on a p
   it. "Same position" means the same pieces with the same side to move; castling rights, the en
   passant square and the clocks are ignored, so a transposition still matches. Each result says at
   which move the position occurs, and the other filters (players, years, ratings) narrow the scan
-  first. 10,000 games replay in about a second.
+  first. A position search is a replay, not an index: ~6,000 moves a second, so a 10,000-game
+  collection takes a couple of minutes. It works in steps — the first matches appear within
+  seconds and a **Scan the rest of the database** button finishes the sweep with a progress bar.
 - **Rating ranges per colour**: White Elo and Black Elo each take a minimum and a maximum, so
   `2000–2300` and `2700+` (fill only "from") are both one filter. Ratings are read from the
   PGN's `WhiteElo`/`BlackElo` headers and shown next to the names in the results; a game whose
