@@ -5,7 +5,7 @@
 // sees — About page, Settings, the beta banner — reads from here. tests/pwa.test.mjs
 // asserts that package.json, the manifest and the SW cache tag agree with this file.
 
-export const VERSION = '1.17.0-beta.1';
+export const VERSION = '1.18.0-beta.1';
 export const CHANNEL = 'beta';           // 'beta' | 'stable'
 export const BUILD = '2026-10-20';
 export const IS_BETA = CHANNEL === 'beta';
@@ -21,6 +21,15 @@ export const LIVE_URL = 'https://snart.com/chessbox';
  * the About page shows, and it doubles as the "what changed" for testers.
  */
 export const CHANGELOG = [
+  {
+    version: '1.18.0-beta.1',
+    date: '2026-10-21',
+    channel: 'beta',
+    notes: [
+      'A position search no longer comes up empty when the FEN has the side to move the wrong way round: it says so and offers the games with exactly those pieces and the other colour to move, each row showing whose move it is. (A FEN typed by hand, or set up on the board without flipping the turn, is the usual cause.)',
+      'Import parses each game with one board instead of rebuilding it from a FEN for every move, which is ~10% faster; the real cost is chess.js validating every SAN, so a 10,000-game collection still takes about two minutes (SCID is faster because it stores moves in a binary format with its own C move generator — a different architecture, not a tuning matter).',
+    ],
+  },
   {
     version: '1.17.0-beta.1',
     date: '2026-10-21',

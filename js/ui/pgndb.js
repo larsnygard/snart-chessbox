@@ -7,10 +7,11 @@
 // big records — only the games you open are deserialised.
 
 import { store } from './store.js';
+import { Chess } from '../../vendor/chess.mjs';
 import { splitGames, parseGame, buildPGN, ratingsFrom, ratingInRange } from '../core/pgn.js';
 import { sanToUci, START_FEN } from '../core/chessutil.js';
 import {
-  positionKey, normaliseFen, matchPly,
+  positionKey, normaliseFen, matchPly, placementKey, placementHashes,
   hashKey, gamePositionHashes, indexOffsets, lookupHashes,
 } from '../core/possearch.js';
 import { createZip, readZipTexts } from '../core/zip.js';
@@ -137,10 +138,11 @@ export async function importPGNText(text, { source = '', dbId = null, onProgress
     const indexEntries = [];
     let added = 0, skipped = 0, duplicates = 0, rated = 0;
     let batch = [];
-    for (let i = 0; i < raws.length && added < max; i++) {
+    const rawsToParse = raws.length > max ? raws.slice(0, max) : raws;
+    for (let i = 0; i < rawsToParse.length && added < max; i++) {
       let parsed;
-      try { parsed = parseGame(raws[i]); } catch (e) { skipped++; continue; }
-      if (!parsed.moves.length || parsed.errors.length) { skipped++; continue; }
+      try { parsed = parseGame(rawsToParse[i]); } catch (e) { parsed = null; }
+      if (!parsed || !parsed.moves.length || parsed.errors.length) { skipped++; continue; }
       const key = `${parsed.headers.White || ''}|${parsed.headers.Black || ''}|${(parsed.headers.Date || '').slice(0, 4)}|${parsed.moves.join(' ')}`;
       const elo = ratingsFrom(parsed.headers);
       if (existing.has(key)) {
@@ -192,7 +194,7 @@ export async function importPGNText(text, { source = '', dbId = null, onProgress
       if (batch.length >= chunk) {
         await store.putGameRecords(batch);
         batch = [];
-        if (onProgress) onProgress(i + 1, raws.length, added);
+        if (onProgress) onProgress(i + 1, rawsToParse.length, added);
         await new Promise((r) => setTimeout(r, 0));
       }
     }
@@ -288,6 +290,16 @@ export async function positionIndexInfo(dbId = null) {
 
 export async function dropPositionIndex(dbId = null) {
   await store.del(posKey(dbId || activeDbId()));
+}
+
+/** Which colour is to move in a game at a given ply (relaxed searches show it). */
+function sideToMoveAt(id, record, ply) {
+  try {
+    const chess = new Chess(record.startFen || START_FEN);
+    const moves = (record.moves || []).slice(0, ply);
+    for (const san of moves) { if (!chess.move(san)) return null; }
+    return chess.turn();
+  } catch (e) { return null; }
 }
 
 /** Assemble and store the index from per-game hash arrays. */
@@ -391,11 +403,14 @@ export async function searchPosition(fen, opts = {}) {
 
   if (index) {
     const offsets = indexOffsets(index.counts);
-    const hits = lookupHashes(index.hashes, offsets, index.counts, hashKey(target));
+    const ignoreTurn = !!opts.ignoreTurn;
+    const hashes = ignoreTurn ? placementHashes(target) : [hashKey(target)];
     const wanted = new Map();
-    for (const hit of hits) {
-      const id = index.ids[hit.game];
-      if (id) wanted.set(id, hit.ply);
+    for (const h of hashes) {
+      for (const hit of lookupHashes(index.hashes, offsets, index.counts, h)) {
+        const id = index.ids[hit.game];
+        if (id && !wanted.has(id)) wanted.set(id, hit.ply);
+      }
     }
     const matches = [];
     const verifyBudget = limit + 20;
@@ -407,18 +422,34 @@ export async function searchPosition(fen, opts = {}) {
       if (verified < verifyBudget) {
         verified++;
         const rec = await store.getGame(m.id);
-        const real = rec ? matchPly(target, rec.startFen || START_FEN, rec.moves || []) : -1;
+        const real = rec ? matchPly(target, rec.startFen || START_FEN, rec.moves || [], { ignoreTurn }) : -1;
         if (real < 0) continue;
-        matches.push({ ...m, ply: real });
+        matches.push({ ...m, ply: real, side: ignoreTurn ? sideToMoveAt(m.id, rec, real) : null });
         continue;
       }
-      matches.push({ ...m, ply });
+      matches.push({ ...m, ply, side: null });
+    }
+    // "no game reaches it" is usually a side-to-move slip when the FEN was typed
+    // or built by hand: offer the same placement with either colour to move
+    let relaxed = null;
+    if (!ignoreTurn && matches.length === 0) {
+      const alt = new Map();
+      for (const h of placementHashes(target)) {
+        for (const hit of lookupHashes(index.hashes, offsets, index.counts, h)) {
+          const id = index.ids[hit.game];
+          if (id && !alt.has(id)) alt.set(id, hit.ply);
+        }
+      }
+      let altTotal = 0;
+      for (const m of candidates) if (alt.has(m.id)) altTotal++;
+      if (altTotal) relaxed = { total: altTotal };
     }
     return {
       ok: true, done: true, built, indexed: true,
       total: matches.length, scanned: candidates.length,
       candidateCount: candidates.length, nextIndex: candidates.length,
       positions: index.hashes.length, gamesIndexed: index.ids.length,
+      relaxed,
       games: matches.slice(0, limit),
     };
   }

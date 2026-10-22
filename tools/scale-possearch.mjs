@@ -22,9 +22,10 @@ const page = await (await browser.newContext({ viewport: { width: 1280, height: 
 await page.goto(BASE + '#/database', { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => !document.getElementById('boot'), null, { timeout: 25000 }).catch(() => {});
 await page.waitForTimeout(600);
+let tImport = Date.now();
 await page.locator('button:has-text("Load bundled example database")').click();
-await page.waitForFunction(() => /9,?8\d\d games/.test((document.querySelector('.card .badge') || {}).textContent || ''), null, { timeout: 240000 }).catch(() => {});
-console.log('db:', await page.evaluate(() => (document.querySelector('.card .badge') || {}).textContent));
+await page.waitForFunction(() => /9,?8\d\d games/.test((document.querySelector('.card .badge') || {}).textContent || ''), null, { timeout: 600000 }).catch(() => {});
+console.log('db:', await page.evaluate(() => (document.querySelector('.card .badge') || {}).textContent), `— imported in ${Date.now() - tImport} ms (download + parse + index)`);
 
 const noteText = () => page.evaluate(() => ([...document.querySelectorAll('.faint')].map((e) => e.textContent).find((t) => /Replayed|Scanned/.test(t))) || '');
 const headText = () => page.evaluate(() => ([...document.querySelectorAll('h3')].map((e) => e.textContent).find((t) => /position/.test(t))) || '');

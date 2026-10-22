@@ -62,13 +62,20 @@ function pieceCount(placement) {
  * so the FEN comparison is skipped on every ply where the material cannot match —
  * that is what keeps a 10,000-game scan interactive.
  */
-export function matchPly(key, startFen, sans) {
+/** The placement half of a position key — the position without the side to move. */
+export function placementKey(key) {
+  return String(key || '').split(' ')[0] || '';
+}
+
+export function matchPly(key, startFen, sans, { ignoreTurn = false } = {}) {
   if (!key) return -1;
+  const targetKey = ignoreTurn ? placementKey(key) : key;
+  const same = (fenKey) => (ignoreTurn ? placementKey(fenKey) === targetKey : fenKey === targetKey);
   const target = pieceCount(key.split(' ')[0]);
   let chess;
   try { chess = new Chess(startFen || START_FEN); } catch (e) { return -1; }
   let pieces = pieceCount(chess.fen().split(' ')[0]);
-  if (pieces === target && positionKey(chess.fen()) === key) return 0;
+  if (pieces === target && same(positionKey(chess.fen()))) return 0;
   const moves = sans || [];
   for (let i = 0; i < moves.length; i++) {
     let done;
@@ -76,7 +83,7 @@ export function matchPly(key, startFen, sans) {
     if (!done) return -1;
     if (done.captured) pieces--;
     if (pieces !== target) continue;
-    if (positionKey(chess.fen()) === key) return i + 1;
+    if (same(positionKey(chess.fen()))) return i + 1;
   }
   return -1;
 }
@@ -85,12 +92,12 @@ export function matchPly(key, startFen, sans) {
  * Match a batch of games: `[{ id, startFen, moves }]` → `[{ id, ply }]`.
  * `ply` is the half-move count from the game's start (0 = before any move).
  */
-export function findPosition(fen, games) {
+export function findPosition(fen, games, opts = {}) {
   const key = positionKey(normaliseFen(fen) || '');
   if (!key) return [];
   const out = [];
   for (const g of games || []) {
-    const ply = matchPly(key, g.startFen, g.moves);
+    const ply = matchPly(key, g.startFen, g.moves, opts);
     if (ply >= 0) out.push({ id: g.id, ply });
   }
   return out;
@@ -104,6 +111,13 @@ export function hashKey(key) {
     h = Math.imul(h, 16777619) >>> 0;
   }
   return h >>> 0;
+}
+
+/** Both hashes a placement can have (one per side to move). */
+export function placementHashes(key) {
+  const placement = placementKey(key);
+  if (!placement) return [];
+  return [hashKey(`${placement} w`), hashKey(`${placement} b`)];
 }
 
 /**

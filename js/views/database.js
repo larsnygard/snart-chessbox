@@ -448,7 +448,7 @@ export function render(host) {
   async function runPositionSearch(reset, fen, { budgetMs = 8000 } = {}) {
     if (!positionKey(normaliseFen(fen))) { toast('That FEN is not a valid position', 'bad'); return; }
     if (reset || !posScan || posScan.fen !== fen) {
-      posScan = { fen, nextIndex: 0, candidateCount: 0, done: false, matches: [] };
+      posScan = { fen, nextIndex: 0, candidateCount: 0, done: false, matches: [], ignoreTurn: false };
     }
     if (reset) { offset = 0; results = []; matches = []; }
     const bar = el('div', { class: 'meter', style: 'margin-top:10px' }, el('i', { style: 'width:0%' }));
@@ -463,6 +463,7 @@ export function render(host) {
         ...searchOpts(),
         startIndex: posScan.nextIndex,
         budgetMs,
+        ignoreTurn: !!posScan.ignoreTurn,
         onBuildProgress: (done, all, games) => {
           bar.querySelector('i').style.width = `${all ? Math.round((done / all) * 100) : 0}%`;
           status.textContent = `Building the position index — one time only: ${done} of ${all} games (${games} indexed)…`;
@@ -490,6 +491,7 @@ export function render(host) {
     posScan.indexed = !!res.indexed;
     posScan.positions = res.positions || 0;
     posScan.gamesIndexed = res.gamesIndexed || 0;
+    posScan.relaxed = res.relaxed || null;
     matches = posScan.matches;
     total = matches.length;
     scanned = res.scanned;
@@ -518,11 +520,26 @@ export function render(host) {
     if (posMode) {
       const partial = posScan && !posScan.done;
       const note = posScan && posScan.indexed
-        ? `Instant: a hash lookup into the position index (${posScan.gamesIndexed.toLocaleString()} games, ${posScan.positions.toLocaleString()} positions), then your other filters.`
+        ? posScan.ignoreTurn
+          ? `Either side to move. Instant: a hash lookup into the position index (${posScan.gamesIndexed.toLocaleString()} games, ${posScan.positions.toLocaleString()} positions), then your other filters.`
+          : `Instant: a hash lookup into the position index (${posScan.gamesIndexed.toLocaleString()} games, ${posScan.positions.toLocaleString()} positions), then your other filters.`
         : partial
           ? `Scanned ${scanned} of ${posScan.candidateCount} games so far — searching the whole database at once would freeze the app, so it works in steps.`
           : `Replayed ${scanned} game${scanned === 1 ? '' : 's'} to find them${capped ? ' — stopped at the scan limit, narrow the other filters for a full sweep' : ''}.`;
       resultBox.append(el('div', { class: 'faint', style: 'font-size:.76rem;margin-bottom:10px', text: note }));
+      if (posScan && posScan.relaxed && !posScan.ignoreTurn && !partial) {
+        resultBox.append(el('div', { class: 'feedback', style: 'margin-bottom:10px' },
+          el('div', { html: `No game reaches this position with <b>${/\sw(\s|$)/.test(String(filters.fen || '').trim()) ? 'White' : 'Black'}</b> to move — but <b>${posScan.relaxed.total}</b> game${posScan.relaxed.total === 1 ? '' : 's'} have exactly these pieces with the other side to move. A FEN typed or set up by hand often has the turn the wrong way round.` }),
+          el('div', { class: 'row', style: 'margin-top:8px' },
+            el('button', {
+              class: 'btn sm primary', text: `Show those ${posScan.relaxed.total} game${posScan.relaxed.total === 1 ? '' : 's'}`,
+              onclick: () => {
+                const fen = posScan.fen;
+                posScan = { fen, nextIndex: 0, candidateCount: 0, done: false, matches: [], ignoreTurn: true };
+                runPositionSearch(false, fen);
+              },
+            }))));
+      }
       if (partial) {
         resultBox.append(el('div', { class: 'row', style: 'gap:8px;margin-bottom:10px;flex-wrap:wrap' },
           el('button', {
@@ -533,7 +550,9 @@ export function render(host) {
       }
     }
 
+    const offerRelaxed = posMode && posScan && posScan.relaxed && !posScan.ignoreTurn && !results.length;
     if (!results.length) {
+      if (offerRelaxed) return;
       const ratingFilterOn = ['whiteEloFrom', 'whiteEloTo', 'blackEloFrom', 'blackEloTo'].some((k) => Number(filters[k]) > 0);
       const noRatings = metaCached().filter((m) => dbOf(m) === activeDbId() && !m.whiteElo && !m.blackElo).length;
       const posFilterOn = !!String(filters.fen || '').trim();
@@ -554,7 +573,7 @@ export function render(host) {
         el('span', { class: 'badge', text: String(g.year || '—') }),
         el('div', { class: 't' },
           el('span', { class: 'name', text: `${withElo(g.white, g.whiteElo)} – ${withElo(g.black, g.blackElo)}` }),
-          el('span', { class: 'sub', text: `${g.result} · ${Math.ceil(g.plies / 2)} moves${g.event ? ' · ' + g.event : ''}${g.eco ? ' · ' + g.eco : ''}${g.ply != null ? ` · reached at move ${Math.ceil(g.ply / 2)}` : ''}` })),
+          el('span', { class: 'sub', text: `${g.result} · ${Math.ceil(g.plies / 2)} moves${g.event ? ' · ' + g.event : ''}${g.eco ? ' · ' + g.eco : ''}${g.ply != null ? ` · reached at move ${Math.ceil(g.ply / 2)}` : ''}${g.side ? ` · ${g.side === 'w' ? 'White' : 'Black'} to move` : ''}` })),
         el('button', { class: 'btn sm', text: 'Review', onclick: () => openInCoach(g) }),
         el('button', { class: 'btn sm', text: 'Memorise', onclick: () => toMemory(g) })));
     }

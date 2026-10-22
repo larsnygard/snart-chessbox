@@ -120,7 +120,9 @@ the whole app (engine included) is cached by a service worker so it works on a p
 - **Several named databases** with a switcher: create, rename, delete. Importing, searching
   and clearing always act on the active one, so a TWIC dump and your own collection can live
   side by side.
-- Import large collections (file, paste or **zip**); games live in their own IndexedDB store,
+- Import large collections (file, paste or **zip**); every move is validated as it is read, which
+  costs about two minutes per 10,000 games (chess.js generates legal moves for every ply), and the
+  position index is built in the same pass. Games live in their own IndexedDB store,
   only metadata is kept in memory, so search stays instant.
 - **Backup / restore as a zip**: one click packs the database PGN plus a manifest; importing a
   zip either feeds the active database or becomes a new one.
@@ -129,15 +131,17 @@ the whole app (engine included) is cached by a service worker so it works on a p
   send it to memory training, export the filtered set as PGN, **copy the result set into a new
   database**, or build a repertoire from it.
 - **Search by position**: paste a FEN — or press **Board…** next to the field to set the pieces up on
-  a board and take that position — and every candidate game is replayed to find the ones that reach
-  it. "Same position" means the same pieces with the same side to move; castling rights, the en
-  passant square and the clocks are ignored, so a transposition still matches. Each result says at
-  which move the position occurs, and the other filters (players, years, ratings) narrow the
-  result. Searching is **indexed, like a database should be**: the first search builds a
-  position index as it imports — so a freshly loaded collection is searchable in milliseconds
-  from the first search — and every search is a hash lookup. A collection imported before this
-  version builds the index once on its first position search (about a minute for 10,000 games,
-  with a progress bar). New imports are appended to the index; deleting games or copying a
+  a board and take that position. "Same position" means the same pieces with the same side to
+  move; castling rights, the en passant square and the clocks are ignored, so a transposition
+  still matches. Each result says at which move the position occurs, and the player/year/rating
+  filters narrow it further. If the side to move in the FEN is the wrong way round (a FEN typed
+  by hand, or a position set up without flipping the turn) the search says so and offers the same
+  pieces with the other colour to move, each row showing whose move it is — never a silent dead
+  end. Searching is **indexed, like a database should be**: the index is built while the collection
+  imports, so a freshly loaded collection is searchable in milliseconds from the first search, and
+  every search after that is a hash lookup. A collection imported before this version builds the
+  index once on its first position search (about a minute for 10,000 games, with a progress bar).
+  New imports are appended to the index; deleting games or copying a
   result set into another database rebuilds it on the next search.
 - **Rating ranges per colour**: White Elo and Black Elo each take a minimum and a maximum, so
   `2000–2300` and `2700+` (fill only "from") are both one filter. Ratings are read from the
