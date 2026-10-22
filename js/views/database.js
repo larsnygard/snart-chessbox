@@ -527,9 +527,12 @@ export function render(host) {
     if (!results.length) {
       const ratingFilterOn = ['whiteEloFrom', 'whiteEloTo', 'blackEloFrom', 'blackEloTo'].some((k) => Number(filters[k]) > 0);
       const noRatings = metaCached().filter((m) => dbOf(m) === activeDbId() && !m.whiteElo && !m.blackElo).length;
+      const posFilterOn = !!String(filters.fen || '').trim();
       const empty = !metaCached().length
         ? 'The database is empty. Load a PGN collection above.'
-        : ratingFilterOn && noRatings
+        : posFilterOn
+          ? 'No game reaches that position. The search needs the same pieces and the same side to move — if you built it by hand, check whose turn it is.'
+          : ratingFilterOn && noRatings
           ? `No games match those filters. ${noRatings} game(s) here carry no rating — importing the same PGN again fills them in without duplicating anything.`
           : 'No games match those filters.';
       resultBox.append(el('div', { class: 'empty', text: empty }));
